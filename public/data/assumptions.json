@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "assumptions",
+  "lastUpdated": "2026-08-11",
+  "source": {
+    "label": "Bundled calculator assumptions",
+    "url": "https://www.nist.gov/privacy-framework",
+    "methodology": "Configurable planning policy informed by risk-based governance, data minimization and processing-boundary control. These labels are not an industry-wide legal classification and should be edited for the user's organization, region and operating environment."
+  },
+  "data": [
+    {
+      "currency": "USD",
+      "capabilityTiers": [
+        {
+          "id": "basic",
+          "labels": { "en": "Basic", "zh-CN": "基础" },
+          "rank": 0,
+          "description": { "en": "Routine language tasks with clear instructions and limited reasoning depth; efficiency matters more than handling difficult edge cases.", "zh-CN": "适合指令清晰、推理深度有限的常规语言任务；更看重资源效率，不要求处理复杂边界情况。" },
+          "example": { "en": "Examples: classification, extraction, short summaries and FAQ drafting.", "zh-CN": "示例：分类、信息抽取、短摘要和常见问答草拟。" },
+          "recommendationImpact": { "en": "The calculator may choose the smallest eligible model with supporting evidence.", "zh-CN": "计算器可选择有证据支持的最小可用模型。" }
+        },
+        {
+          "id": "balanced",
+          "labels": { "en": "Balanced", "zh-CN": "均衡" },
+          "rank": 1,
+          "description": { "en": "General business quality for common knowledge work, with moderate reasoning and instruction following at a practical cost.", "zh-CN": "面向常见知识工作的通用业务质量，在适中成本下提供中等推理与指令遵循能力。" },
+          "example": { "en": "Examples: internal copilots, document Q&A, routine analysis and everyday coding assistance.", "zh-CN": "示例：内部 Copilot、文档问答、常规分析和日常编程辅助。" },
+          "recommendationImpact": { "en": "The calculator favors mainstream mid-tier models that balance quality, speed and cost.", "zh-CN": "计算器会偏向在质量、速度与成本之间折中的主流中档模型。" }
+        },
+        {
+          "id": "advanced",
+          "labels": { "en": "Advanced", "zh-CN": "高级" },
+          "rank": 2,
+          "description": { "en": "Complex multi-step work that needs stronger reasoning, coding, tool use or long-context reliability, where errors have meaningful business impact.", "zh-CN": "适合需要更强推理、编程、工具调用或长上下文可靠性的复杂多步任务，错误会带来明显业务影响。" },
+          "example": { "en": "Examples: coding agents, complex RAG synthesis, workflow agents and expert document review.", "zh-CN": "示例：编程 Agent、复杂 RAG 综合、工作流 Agent 和专家级文档审阅。" },
+          "recommendationImpact": { "en": "The calculator requires a higher-ranked model and may accept higher memory, latency or cost.", "zh-CN": "计算器会要求更高能力档模型，并可能接受更高显存、延迟或成本。" }
+        },
+        {
+          "id": "frontier",
+          "labels": { "en": "Frontier", "zh-CN": "前沿" },
+          "rank": 3,
+          "description": { "en": "The hardest novel, expert or high-consequence tasks where the best available capability is prioritized over cost and deployment simplicity.", "zh-CN": "面向最困难、创新性强、专家级或高后果任务，优先追求当前最佳能力，而非成本和部署简易度。" },
+          "example": { "en": "Examples: difficult research, frontier agentic coding and high-stakes expert analysis with human review.", "zh-CN": "示例：高难度研究、前沿 Agent 编程，以及配有人审的高风险专家分析。" },
+          "recommendationImpact": { "en": "The calculator considers only the highest configured capability tier; cloud escalation may be required if local evidence is insufficient.", "zh-CN": "计算器只考虑配置中最高能力档；本地证据不足时可能需要升级到云端。" }
+        }
+      ],
+      "workloadDefinitions": {
+        "privacy": {
+          "low": {
+            "labels": { "en": "Low privacy", "zh-CN": "低隐私" },
+            "description": { "en": "Public, synthetic or non-sensitive content. External cloud processing is normally acceptable.", "zh-CN": "公开、合成或非敏感内容，通常可以接受外部云端处理。" },
+            "example": { "en": "Examples: public documents, demos and synthetic test data.", "zh-CN": "示例：公开文档、演示内容和合成测试数据。" },
+            "recommendationImpact": { "en": "Cloud is allowed; capability and economics drive the recommendation.", "zh-CN": "允许使用云端，推荐主要由能力与经济性决定。" }
+          },
+          "medium": {
+            "labels": { "en": "Medium privacy", "zh-CN": "中等隐私" },
+            "description": { "en": "Routine internal business data without regulated or high-value secrets. Use approved providers and retention controls.", "zh-CN": "常规内部业务数据，不包含受监管信息或高价值机密；应使用获批服务商并控制数据留存。" },
+            "example": { "en": "Examples: internal summaries, ordinary operations and non-sensitive support content.", "zh-CN": "示例：内部摘要、常规运营资料和非敏感客服内容。" },
+            "recommendationImpact": { "en": "Cloud remains possible when organizational controls are satisfied.", "zh-CN": "满足组织安全控制后仍可采用云端。" }
+          },
+          "high": {
+            "labels": { "en": "High privacy", "zh-CN": "高隐私" },
+            "description": { "en": "Raw sensitive content stays inside an organization-controlled local or private boundary. Hybrid processing may send only redacted, minimized context or a non-sensitive subtask to an approved cloud.", "zh-CN": "原始敏感内容留在组织可控的本地或私有边界内；混合计算只能向获批云端发送脱敏、最小化后的上下文或非敏感子任务。" },
+            "example": { "en": "Examples: unreleased products, private repositories and customer-confidential documents.", "zh-CN": "示例：未发布产品、私有代码库和客户保密文档。" },
+            "recommendationImpact": { "en": "Local or Hybrid is preferred. Public cloud must not receive raw sensitive fields; any escalation requires explicit organizational controls.", "zh-CN": "优先本地或混合部署；公共云不得接收原始敏感字段，任何云端升级都必须经过明确的组织控制。" }
+          },
+          "critical": {
+            "labels": { "en": "Critical privacy", "zh-CN": "关键隐私" },
+            "description": { "en": "All prompts, context, retrieved data, outputs and inference telemetry remain inside the approved local, on-premises or sovereign boundary.", "zh-CN": "提示词、上下文、检索数据、输出和推理遥测全部留在获批的本地、企业内网或主权边界内。" },
+            "example": { "en": "Examples: protected health data, classified workloads and strict data-residency cases.", "zh-CN": "示例：受保护健康数据、涉密工作负载和严格数据驻留场景。" },
+            "recommendationImpact": { "en": "Public-cloud inference is prohibited by this planning policy. Local is a hard requirement; the calculator reports a conflict when no capable local path exists.", "zh-CN": "本规划策略禁止公共云推理；本地部署是硬性要求，没有可行本地方案时计算器会明确报告约束冲突。" }
+          }
+        },
+        "latency": {
+          "best-effort": {
+            "labels": { "en": "Best effort", "zh-CN": "尽力而为" },
+            "description": { "en": "Background or asynchronous work where the user is not waiting on every response.", "zh-CN": "后台或异步任务，用户不会等待每一次响应。" },
+            "example": { "en": "Examples: batch classification, nightly summaries and offline document processing.", "zh-CN": "示例：批量分类、夜间摘要和离线文档处理。" },
+            "recommendationImpact": { "en": "Planning target: first token within about 10 seconds; throughput and cost usually matter more.", "zh-CN": "规划目标：首 Token 约 10 秒内；通常吞吐量和成本更重要。" },
+            "targetTimeToFirstTokenSeconds": 10
+          },
+          "interactive": {
+            "labels": { "en": "Interactive", "zh-CN": "交互式" },
+            "description": { "en": "A person is actively waiting, but a short conversational pause is acceptable.", "zh-CN": "用户正在等待响应，但可以接受短暂的对话停顿。" },
+            "example": { "en": "Examples: chat assistants, document Q&A and internal copilots.", "zh-CN": "示例：聊天助手、文档问答和内部 Copilot。" },
+            "recommendationImpact": { "en": "Planning target: first token within about 2 seconds.", "zh-CN": "规划目标：首 Token 约 2 秒内。" },
+            "targetTimeToFirstTokenSeconds": 2
+          },
+          "fast": {
+            "labels": { "en": "Fast", "zh-CN": "快速" },
+            "description": { "en": "The response should feel immediate enough to preserve a rapid working rhythm.", "zh-CN": "响应应足够即时，以保持快速连续的工作节奏。" },
+            "example": { "en": "Examples: coding assistance, rapid search and high-frequency agent interaction.", "zh-CN": "示例：编程辅助、快速检索和高频 Agent 交互。" },
+            "recommendationImpact": { "en": "Planning target: first token within about 1 second.", "zh-CN": "规划目标：首 Token 约 1 秒内。" },
+            "targetTimeToFirstTokenSeconds": 1
+          },
+          "real-time": {
+            "labels": { "en": "Real time", "zh-CN": "实时" },
+            "description": { "en": "Delay interrupts a live conversation or control loop and must be minimized end to end.", "zh-CN": "延迟会打断实时对话或控制循环，需要尽量降低端到端等待。" },
+            "example": { "en": "Examples: live voice turns, operator assistance and interactive control.", "zh-CN": "示例：实时语音轮次、操作员辅助和交互控制。" },
+            "recommendationImpact": { "en": "Planning target: first token within about 0.25 seconds; the engine prefers a local network path when feasible.", "zh-CN": "规划目标：首 Token 约 0.25 秒内；可行时引擎会偏好本地网络路径。" },
+            "targetTimeToFirstTokenSeconds": 0.25
+          }
+        }
+      },
+      "economics": {
+        "electricityPricePerKWh": 0.15,
+        "hardwareLifetimeMonths": 36,
+        "maintenanceCostMonthly": 75,
+        "defaultUtilizationRatio": 0.45,
+        "defaultCachedInputRatio": 0.1,
+        "hostPurchasePriceUSD": 2500,
+        "hostIdlePowerWatts": 80,
+        "hostLoadPowerWatts": 250,
+        "gpuIdlePowerRatio": 0.15
+      },
+      "vram": {
+        "defaultRuntimeOverheadRatio": 0.1,
+        "minimumRuntimeOverheadGB": 2,
+        "safetyMarginRatio": 0.15,
+        "fallbackKvCacheBytesPerTokenByTier": {
+          "basic": 131072,
+          "balanced": 196608,
+          "advanced": 327680,
+          "frontier": 786432
+        },
+        "fitThresholds": {
+          "marginalCapacityRatio": 0.85,
+          "recommendedCapacityRatio": 1,
+          "comfortableCapacityRatio": 1.25
+        }
+      },
+      "multiGpuEfficiency": {
+        "pcie": { "1": 1, "2": 0.82, "4": 0.65 },
+        "nvlink": { "1": 1, "2": 0.92, "4": 0.84 },
+        "unified": { "1": 1, "2": 0.95, "4": 0.9 },
+        "other": { "1": 1, "2": 0.75, "4": 0.55 }
+      },
+      "simpleModeMappings": {
+        "useCases": {
+          "ai-assistant": { "labels": { "en": "AI assistant", "zh-CN": "AI 助手" }, "averageInputTokens": 900, "averageOutputTokens": 350, "averageAgentSteps": 1, "peakConcurrentUsersRatio": 0.2, "averageContextLength": 4096, "peakContextLength": 8192 },
+          "enterprise-agent": { "labels": { "en": "Enterprise agent", "zh-CN": "企业智能体" }, "averageInputTokens": 1800, "averageOutputTokens": 650, "averageAgentSteps": 4, "peakConcurrentUsersRatio": 0.35, "averageContextLength": 8192, "peakContextLength": 16384 },
+          "coding": { "labels": { "en": "Coding", "zh-CN": "编程" }, "averageInputTokens": 2500, "averageOutputTokens": 1100, "averageAgentSteps": 3, "peakConcurrentUsersRatio": 0.3, "averageContextLength": 16384, "peakContextLength": 32768 },
+          "document-rag": { "labels": { "en": "Document RAG", "zh-CN": "文档 RAG" }, "averageInputTokens": 4200, "averageOutputTokens": 550, "averageAgentSteps": 2, "peakConcurrentUsersRatio": 0.25, "averageContextLength": 16384, "peakContextLength": 32768 },
+          "meeting-agent": { "labels": { "en": "Meeting agent", "zh-CN": "会议助手" }, "averageInputTokens": 5000, "averageOutputTokens": 900, "averageAgentSteps": 2, "peakConcurrentUsersRatio": 0.2, "averageContextLength": 16384, "peakContextLength": 32768 },
+          "content-creation": { "labels": { "en": "Content creation", "zh-CN": "内容创作" }, "averageInputTokens": 1200, "averageOutputTokens": 1400, "averageAgentSteps": 2, "peakConcurrentUsersRatio": 0.25, "averageContextLength": 8192, "peakContextLength": 16384 },
+          "custom": { "labels": { "en": "Custom", "zh-CN": "自定义" }, "averageInputTokens": 1000, "averageOutputTokens": 500, "averageAgentSteps": 1, "peakConcurrentUsersRatio": 0.2, "averageContextLength": 4096, "peakContextLength": 8192 }
+        },
+        "usageFrequency": {
+          "occasional": { "labels": { "en": "Occasional", "zh-CN": "偶尔" }, "requestsPerUserPerWorkingDay": 3, "workingHoursPerDay": 8, "workingDaysPerMonth": 20 },
+          "daily": { "labels": { "en": "Daily", "zh-CN": "日常" }, "requestsPerUserPerWorkingDay": 12, "workingHoursPerDay": 8, "workingDaysPerMonth": 22 },
+          "heavy": { "labels": { "en": "Heavy", "zh-CN": "高频" }, "requestsPerUserPerWorkingDay": 40, "workingHoursPerDay": 10, "workingDaysPerMonth": 22 },
+          "always-on": { "labels": { "en": "Always on", "zh-CN": "持续运行" }, "requestsPerUserPerWorkingDay": 100, "workingHoursPerDay": 24, "workingDaysPerMonth": 30 }
+        },
+        "intelligence": {
+          "basic": { "startingClass": "basic" },
+          "balanced": { "startingClass": "balanced" },
+          "advanced": { "startingClass": "advanced" },
+          "frontier": { "startingClass": "frontier" }
+        }
+      },
+      "recommendation": {
+        "lowUtilizationRatio": 0.25,
+        "highUtilizationRatio": 0.6,
+        "maximumPreferredBreakEvenMonths": 24,
+        "highPrivacyLevels": ["high", "critical"],
+        "minimumHybridLocalCoverageRatio": 0.5,
+        "minimumMeaningfulSavingsRatio": 0.1,
+        "costTieToleranceRatio": 0.05
+      }
+    }
+  ]
+}

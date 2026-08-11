@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "presets",
+  "lastUpdated": "2026-08-11",
+  "source": {
+    "label": "Bundled advisor presets",
+    "methodology": "Editable scenario starting points, not benchmark claims."
+  },
+  "data": [
+    {
+      "id": "personal-ai-assistant",
+      "name": { "en": "Personal AI Assistant", "zh-CN": "个人 AI 助手" },
+      "description": { "en": "One daily user with interactive assistant tasks.", "zh-CN": "一位日常用户的交互式助手场景。" },
+      "workload": { "mode": "simple", "useCase": "ai-assistant", "usageFrequency": "daily", "users": 1, "privacyRequirement": "medium", "capabilityRequirementTierId": "balanced", "latencyRequirement": "interactive" },
+      "suggestedLocalCoverageRatio": 0.85
+    },
+    {
+      "id": "smb-agent-10",
+      "name": { "en": "10-person SMB AI Agent", "zh-CN": "10 人中小企业 AI 智能体" },
+      "description": { "en": "A small team using a multi-step business agent every day.", "zh-CN": "小团队日常使用多步骤业务智能体。" },
+      "workload": { "mode": "simple", "useCase": "enterprise-agent", "usageFrequency": "daily", "users": 10, "privacyRequirement": "high", "capabilityRequirementTierId": "balanced", "latencyRequirement": "interactive" },
+      "suggestedLocalCoverageRatio": 0.8
+    },
+    {
+      "id": "department-ai-20",
+      "name": { "en": "20-person Department AI", "zh-CN": "20 人部门级 AI" },
+      "description": { "en": "Department-wide assistant and knowledge workflows.", "zh-CN": "覆盖部门的助手与知识工作流。" },
+      "workload": { "mode": "simple", "useCase": "enterprise-agent", "usageFrequency": "heavy", "users": 20, "privacyRequirement": "high", "capabilityRequirementTierId": "advanced", "latencyRequirement": "fast" },
+      "suggestedLocalCoverageRatio": 0.75
+    },
+    {
+      "id": "local-rag",
+      "name": { "en": "Local RAG", "zh-CN": "本地 RAG" },
+      "description": { "en": "Private document retrieval and grounded generation.", "zh-CN": "私有文档检索与有依据的生成。" },
+      "workload": { "mode": "simple", "useCase": "document-rag", "usageFrequency": "daily", "users": 10, "privacyRequirement": "critical", "capabilityRequirementTierId": "balanced", "latencyRequirement": "interactive" },
+      "suggestedLocalCoverageRatio": 1
+    },
+    {
+      "id": "coding-agent",
+      "name": { "en": "Coding Agent", "zh-CN": "编程智能体" },
+      "description": { "en": "Long-context, multi-step coding assistance.", "zh-CN": "长上下文、多步骤编程辅助。" },
+      "workload": { "mode": "simple", "useCase": "coding", "usageFrequency": "heavy", "users": 5, "privacyRequirement": "high", "capabilityRequirementTierId": "advanced", "latencyRequirement": "fast" },
+      "suggestedLocalCoverageRatio": 0.7
+    },
+    {
+      "id": "always-on-enterprise-agent",
+      "name": { "en": "Always-on Enterprise Agent", "zh-CN": "持续运行的企业智能体" },
+      "description": { "en": "A continuously available agent for a larger team.", "zh-CN": "面向较大团队的持续可用智能体。" },
+      "workload": { "mode": "simple", "useCase": "enterprise-agent", "usageFrequency": "always-on", "users": 50, "privacyRequirement": "high", "capabilityRequirementTierId": "frontier", "latencyRequirement": "fast" },
+      "suggestedLocalCoverageRatio": 0.65
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "gpus",
+  "lastUpdated": "2026-08-10",
+  "source": {
+    "label": "Bundled directional hardware sample",
+    "methodology": "Representative specifications and planning prices; street pricing varies by region and date."
+  },
+  "data": [
+    { "id": "rtx-4090-24gb", "name": "GeForce RTX 4090 24GB", "vendor": "NVIDIA", "vramGB": 24, "memoryBandwidthGBps": 1008, "tdpWatts": 450, "streetPriceUSD": 1800, "interconnect": "pcie", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true, "notes": "Multi-GPU requires software support; no NVLink." },
+    { "id": "rtx-6000-ada-48gb", "name": "RTX 6000 Ada 48GB", "vendor": "NVIDIA", "vramGB": 48, "memoryBandwidthGBps": 960, "tdpWatts": 300, "streetPriceUSD": 6800, "interconnect": "pcie", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true },
+    { "id": "a100-80gb", "name": "A100 80GB", "vendor": "NVIDIA", "vramGB": 80, "memoryBandwidthGBps": 2039, "tdpWatts": 400, "streetPriceUSD": 15000, "interconnect": "nvlink", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true, "notes": "Planning price is illustrative and excludes server integration." },
+    { "id": "h100-sxm-80gb", "name": "H100 SXM 80GB", "vendor": "NVIDIA", "vramGB": 80, "memoryBandwidthGBps": 3350, "tdpWatts": 700, "streetPriceUSD": 28000, "interconnect": "nvlink", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true, "notes": "Planning price is illustrative and excludes server integration." }
+  ]
+}

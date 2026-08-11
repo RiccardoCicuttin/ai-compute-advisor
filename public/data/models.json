@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "models",
+  "lastUpdated": "2026-08-11",
+  "source": {
+    "label": "Bundled directional sample data",
+    "methodology": "Public model cards normalized for calculator demonstrations; verify before purchase decisions."
+  },
+  "data": [
+    {
+      "id": "llama-3.2-3b-instruct",
+      "name": "Llama 3.2 3B Instruct",
+      "provider": "Meta",
+      "family": "Llama 3.2",
+      "modelType": "dense",
+      "totalParametersB": 3.21,
+      "activeParametersB": 3.21,
+      "contextWindowTokens": 131072,
+      "maxOutputTokens": 8192,
+      "recommendedQuantizationId": "q4",
+      "quantizations": [
+        { "id": "q4", "label": "4-bit", "bitsPerParameter": 4, "packingOverheadRatio": 0.05 },
+        { "id": "q8", "label": "8-bit", "bitsPerParameter": 8, "packingOverheadRatio": 0.03 },
+        { "id": "fp16", "label": "FP16", "bitsPerParameter": 16, "packingOverheadRatio": 0 }
+      ],
+      "capabilityTierId": "basic",
+      "reasoning": false,
+      "modalities": ["text"],
+      "openWeight": true,
+      "commercialUse": "allowed",
+      "kvCacheBytesPerToken": 114688,
+      "notes": "Compact local baseline for light assistant and extraction workloads."
+    },
+    {
+      "id": "qwen2.5-14b-instruct",
+      "name": "Qwen2.5 14B Instruct",
+      "provider": "Alibaba Cloud",
+      "family": "Qwen2.5",
+      "modelType": "dense",
+      "totalParametersB": 14.7,
+      "activeParametersB": 14.7,
+      "contextWindowTokens": 131072,
+      "maxOutputTokens": 8192,
+      "recommendedQuantizationId": "q4",
+      "quantizations": [
+        { "id": "q4", "label": "4-bit", "bitsPerParameter": 4, "packingOverheadRatio": 0.05 },
+        { "id": "q8", "label": "8-bit", "bitsPerParameter": 8, "packingOverheadRatio": 0.03 },
+        { "id": "fp16", "label": "FP16", "bitsPerParameter": 16, "packingOverheadRatio": 0 }
+      ],
+      "capabilityTierId": "balanced",
+      "reasoning": false,
+      "modalities": ["text"],
+      "openWeight": true,
+      "commercialUse": "allowed",
+      "kvCacheBytesPerToken": 196608,
+      "notes": "Balanced local model used as a directional planning example."
+    },
+    {
+      "id": "mixtral-8x7b-instruct",
+      "name": "Mixtral 8x7B Instruct",
+      "provider": "Mistral AI",
+      "family": "Mixtral",
+      "modelType": "moe",
+      "totalParametersB": 46.7,
+      "activeParametersB": 12.9,
+      "contextWindowTokens": 32768,
+      "maxOutputTokens": 8192,
+      "recommendedQuantizationId": "q4",
+      "quantizations": [
+        { "id": "q4", "label": "4-bit", "bitsPerParameter": 4, "packingOverheadRatio": 0.06 },
+        { "id": "q8", "label": "8-bit", "bitsPerParameter": 8, "packingOverheadRatio": 0.04 }
+      ],
+      "capabilityTierId": "balanced",
+      "reasoning": false,
+      "modalities": ["text"],
+      "openWeight": true,
+      "commercialUse": "allowed",
+      "kvCacheBytesPerToken": 131072,
+      "notes": "MoE example: weight capacity uses 46.7B total parameters, not 12.9B active parameters."
+    },
+    {
+      "id": "llama-3.1-70b-instruct",
+      "name": "Llama 3.1 70B Instruct",
+      "provider": "Meta",
+      "family": "Llama 3.1",
+      "modelType": "dense",
+      "totalParametersB": 70.6,
+      "activeParametersB": 70.6,
+      "contextWindowTokens": 131072,
+      "maxOutputTokens": 8192,
+      "recommendedQuantizationId": "q4",
+      "quantizations": [
+        { "id": "q4", "label": "4-bit", "bitsPerParameter": 4, "packingOverheadRatio": 0.05 },
+        { "id": "q8", "label": "8-bit", "bitsPerParameter": 8, "packingOverheadRatio": 0.03 },
+        { "id": "fp16", "label": "FP16", "bitsPerParameter": 16, "packingOverheadRatio": 0 }
+      ],
+      "capabilityTierId": "advanced",
+      "reasoning": false,
+      "modalities": ["text"],
+      "openWeight": true,
+      "commercialUse": "allowed",
+      "kvCacheBytesPerToken": 327680,
+      "notes": "Large local model for advanced reasoning and RAG planning scenarios."
+    },
+    {
+      "id": "deepseek-r1-671b",
+      "name": "DeepSeek-R1 671B",
+      "provider": "DeepSeek",
+      "family": "DeepSeek-R1",
+      "modelType": "moe",
+      "totalParametersB": 671,
+      "activeParametersB": 37,
+      "contextWindowTokens": 131072,
+      "maxOutputTokens": 16384,
+      "recommendedQuantizationId": "q4",
+      "quantizations": [
+        { "id": "q4", "label": "4-bit", "bitsPerParameter": 4, "packingOverheadRatio": 0.06 },
+        { "id": "q8", "label": "8-bit", "bitsPerParameter": 8, "packingOverheadRatio": 0.04 }
+      ],
+      "capabilityTierId": "frontier",
+      "reasoning": true,
+      "modalities": ["text"],
+      "openWeight": true,
+      "commercialUse": "allowed",
+      "notes": "Frontier-class MoE example. Local fit uses total parameters and a conservative KV fallback."
+    }
+  ]
+}

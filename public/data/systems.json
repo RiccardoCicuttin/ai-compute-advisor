@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "desktop-systems",
+  "lastUpdated": "2026-08-11",
+  "source": {
+    "label": "Bundled directional complete-system examples",
+    "methodology": "Illustrative planning configurations for exercising the desktop-system adapter. Prices, power, bandwidth and performance are directional and must be replaced with current vendor or measured data before a purchase decision."
+  },
+  "data": [
+    {
+      "id": "directional-discrete-ddr5-workstation",
+      "name": "Directional Dual-GPU DDR5 Workstation",
+      "vendor": "Reference Design",
+      "dataQuality": "directional",
+      "lastUpdated": "2026-08-11",
+      "memoryArchitecture": "dedicated",
+      "dedicatedMemoryGBPerDevice": 48,
+      "systemMemoryType": "DDR5-ECC",
+      "systemMemoryGB": 128,
+      "acceleratorType": "GPU",
+      "acceleratorBehaviorCategory": "gpu",
+      "acceleratorModel": "48GB workstation GPU",
+      "acceleratorCount": 2,
+      "supportsModelSharding": true,
+      "memoryBandwidthGBps": 1920,
+      "interconnect": "pcie",
+      "systemIdleWatts": 170,
+      "systemLoadWatts": 900,
+      "purchasePriceUSD": 19000,
+      "runtimeSupport": {
+        "status": "supported",
+        "runtimes": ["llama.cpp", "vLLM"],
+        "operatingSystems": ["Linux", "Windows"],
+        "method": "community-reported",
+        "notes": "Tensor parallel behavior depends on the runtime, topology and model."
+      },
+      "performance": {
+        "modelId": "llama-3.1-70b-instruct",
+        "quantizationId": "q4",
+        "contextTokens": 8192,
+        "concurrency": 2,
+        "effectiveTokensPerSecond": 28,
+        "timeToFirstTokenSeconds": 0.8,
+        "method": "estimated",
+        "notes": "Directional scenario value, not a measured benchmark."
+      },
+      "notes": "Bandwidth is a directional aggregate. Multi-device performance must not be assumed linear."
+    },
+    {
+      "id": "directional-unified-memory-desktop",
+      "name": "Directional 192GB Unified-Memory Desktop",
+      "vendor": "Reference Design",
+      "dataQuality": "directional",
+      "lastUpdated": "2026-08-11",
+      "memoryArchitecture": "unified",
+      "allocatableUnifiedMemoryGB": 160,
+      "systemMemoryType": "Unified",
+      "systemMemoryGB": 192,
+      "acceleratorType": "GPU",
+      "acceleratorBehaviorCategory": "gpu",
+      "acceleratorModel": "Integrated unified-memory GPU",
+      "acceleratorCount": 1,
+      "supportsModelSharding": false,
+      "memoryBandwidthGBps": 800,
+      "interconnect": "unified",
+      "systemIdleWatts": 24,
+      "systemLoadWatts": 360,
+      "purchasePriceUSD": 8500,
+      "runtimeSupport": {
+        "status": "supported",
+        "runtimes": ["MLX", "llama.cpp"],
+        "operatingSystems": ["macOS"],
+        "method": "community-reported"
+      },
+      "performance": {
+        "modelId": "qwen2.5-14b-instruct",
+        "quantizationId": "q4",
+        "contextTokens": 8192,
+        "concurrency": 1,
+        "effectiveTokensPerSecond": 42,
+        "timeToFirstTokenSeconds": 0.45,
+        "method": "estimated",
+        "notes": "Directional scenario value, not a measured benchmark."
+      },
+      "notes": "Allocatable model memory is lower than installed memory because the OS and runtime share the same pool."
+    },
+    {
+      "id": "directional-ai-accelerator-workstation",
+      "name": "Directional Dual AI-Accelerator Workstation",
+      "vendor": "Reference Design",
+      "dataQuality": "directional",
+      "lastUpdated": "2026-08-11",
+      "memoryArchitecture": "dedicated",
+      "dedicatedMemoryGBPerDevice": 64,
+      "systemMemoryType": "DDR5-ECC",
+      "systemMemoryGB": 256,
+      "acceleratorType": "AI accelerator",
+      "acceleratorBehaviorCategory": "ai-accelerator",
+      "acceleratorModel": "64GB inference accelerator",
+      "acceleratorCount": 2,
+      "supportsModelSharding": true,
+      "memoryBandwidthGBps": 2400,
+      "interconnect": "other",
+      "systemIdleWatts": 210,
+      "systemLoadWatts": 760,
+      "purchasePriceUSD": 24000,
+      "peakTops": {
+        "value": 320,
+        "precision": "INT8"
+      },
+      "runtimeSupport": {
+        "status": "partial",
+        "runtimes": ["Vendor inference runtime", "ONNX Runtime"],
+        "operatingSystems": ["Linux"],
+        "method": "vendor-documented",
+        "notes": "Model and operator coverage must be checked against the vendor compatibility list."
+      },
+      "performance": {
+        "modelId": "llama-3.1-70b-instruct",
+        "quantizationId": "q4",
+        "contextTokens": 8192,
+        "concurrency": 4,
+        "effectiveTokensPerSecond": 46,
+        "timeToFirstTokenSeconds": 0.55,
+        "method": "estimated",
+        "notes": "Explicit directional override; it is not derived from TOPS."
+      },
+      "notes": "Peak TOPS is retained as a hardware specification and is never converted into token throughput."
+    },
+    {
+      "id": "directional-npu-desktop",
+      "name": "Directional 50-TOPS NPU Desktop",
+      "vendor": "Reference Design",
+      "dataQuality": "directional",
+      "lastUpdated": "2026-08-11",
+      "memoryArchitecture": "unified",
+      "allocatableUnifiedMemoryGB": 48,
+      "systemMemoryType": "DDR5",
+      "systemMemoryGB": 64,
+      "acceleratorType": "NPU",
+      "acceleratorBehaviorCategory": "npu",
+      "acceleratorModel": "Integrated desktop NPU",
+      "acceleratorCount": 1,
+      "supportsModelSharding": false,
+      "memoryBandwidthGBps": 120,
+      "interconnect": "unified",
+      "systemIdleWatts": 35,
+      "systemLoadWatts": 180,
+      "purchasePriceUSD": 1800,
+      "peakTops": {
+        "value": 50,
+        "precision": "INT8"
+      },
+      "runtimeSupport": {
+        "status": "experimental",
+        "runtimes": ["ONNX Runtime"],
+        "operatingSystems": ["Windows", "Linux"],
+        "method": "vendor-documented",
+        "notes": "Runtime support does not imply that every model graph fits or runs fully on the NPU."
+      },
+      "notes": "No TPS or TTFT is supplied. The normalizer must not infer either metric from TOPS."
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "base": "USD",
+  "lastUpdated": "2026-08-10",
+  "source": {
+    "label": "Frankfurter v1 daily reference rates",
+    "url": "https://frankfurter.dev/v1/",
+    "apiUrl": "https://api.frankfurter.dev/v1/latest?base=USD&symbols=EUR,CNY",
+    "methodology": "Latest working-day reference rates. Bundled values are a resilient fallback and may become stale."
+  },
+  "currencies": [
+    {
+      "code": "USD",
+      "ratePerUSD": 1,
+      "symbol": "$",
+      "name": "US Dollar",
+      "decimals": 2
+    },
+    {
+      "code": "EUR",
+      "ratePerUSD": 0.86543,
+      "symbol": "€",
+      "name": "Euro",
+      "decimals": 2
+    },
+    {
+      "code": "CNY",
+      "ratePerUSD": 6.7444,
+      "symbol": "¥",
+      "name": "Chinese Yuan",
+      "decimals": 2
+    }
+  ]
+}

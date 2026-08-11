@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+:root {
+  color: #172033;
+  background: #ffffff;
+  font-family:
+    "Avenir Next", Avenir, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100dvh;
+  background: #ffffff;
+  color: #172033;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea,
+[tabindex] {
+  outline-color: #2563eb;
+  outline-offset: 3px;
+}
+
+button,
+select,
+input[type="range"] {
+  cursor: pointer;
+}
+
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
+::selection {
+  background: #dbeafe;
+  color: #172033;
+}
+
+.advisor-section {
+  width: min(100%, 1440px);
+  margin-inline: auto;
+  padding: 4.5rem 2rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.advisor-section:last-of-type {
+  border-bottom: 0;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: #cbd5e1;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (max-width: 767px) {
+  .advisor-section {
+    padding: 3.25rem 1rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .advisor-section {
+    padding-inline: 1.5rem;
+  }
+}
+
+@media print {
+  header,
+  button,
+  input,
+  select {
+    print-color-adjust: exact;
+  }
+
+  header {
+    position: static !important;
+  }
+
+  .advisor-section {
+    max-width: none;
+    padding-block: 2rem;
+    break-inside: avoid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -2,6 +2,8 @@
 
 [中文运行与部署说明](README.zh-CN.md)
 
+**Live calculator:** [https://joyzhou123123.github.io/ai-compute-advisor/](https://joyzhou123123.github.io/ai-compute-advisor/)
+
 **From AI workload to the right compute architecture.**
 
 AI Compute Advisor is a static decision tool for comparing Local, Hybrid, and Cloud AI deployment from either a customer workload or an existing compute configuration. It estimates model and VRAM requirements, hardware fit, monthly and three-year cost, break-even, and the trade-offs behind a deployment recommendation.

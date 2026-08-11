@@ -1,4 +1,4 @@
-import type { GpuRecord, Interconnect, MetricMethod } from "../types";
+import type { ComputeHardwareRecord, Interconnect, MetricMethod } from "../types";
 
 export type MemoryArchitecture = "dedicated" | "unified";
 /** Data-pack display label; memory architecture carries calculation behavior. */
@@ -50,13 +50,22 @@ interface DesktopSystemCommon {
   systemMemoryGB: number;
   memoryBandwidthGBps: number;
   interconnect: Interconnect;
-  systemIdleWatts: number;
-  systemLoadWatts: number;
-  purchasePriceUSD: number;
   peakTops?: PeakTopsSpecification;
   runtimeSupport: RuntimeSupport;
   performance?: SystemPerformanceOverride;
   notes?: string;
+}
+
+export interface DesktopSystemEconomicsEvidence {
+  systemIdleWatts: number | null;
+  systemLoadWatts: number | null;
+  purchasePriceUSD: number | null;
+}
+
+export interface CompleteDesktopSystemEconomics {
+  systemIdleWatts: number;
+  systemLoadWatts: number;
+  purchasePriceUSD: number;
 }
 
 export type DesktopMemoryConfiguration =
@@ -72,6 +81,7 @@ export type DesktopMemoryConfiguration =
     };
 
 export type DesktopSystemRecord = DesktopSystemCommon &
+  DesktopSystemEconomicsEvidence &
   DesktopMemoryConfiguration & {
     id: string;
     dataQuality: "directional" | "verified";
@@ -83,6 +93,7 @@ export type DesktopSystemRecord = DesktopSystemCommon &
   };
 
 export type CustomDesktopSystemConfig = DesktopSystemCommon &
+  CompleteDesktopSystemEconomics &
   DesktopMemoryConfiguration & {
     id?: string;
   };
@@ -130,19 +141,20 @@ export interface NormalizedDesktopHardware {
   totalInstalledAcceleratorMemoryGB: number;
   totalAvailableMemoryGB: number;
   memoryBandwidthGBps: number;
-  wholeSystemPurchasePriceUSD: number;
-  wholeSystemIdleWatts: number;
-  wholeSystemLoadWatts: number;
+  wholeSystemPurchasePriceUSD: number | null;
+  wholeSystemIdleWatts: number | null;
+  wholeSystemLoadWatts: number | null;
+  economicsEvidenceAvailable: boolean;
   peakTops: PeakTopsSpecification | null;
   runtimeSupport: RuntimeSupport;
   performanceOverride: NormalizedSystemPerformanceOverride | null;
 
-  engineGpu: GpuRecord;
+  engineGpu: ComputeHardwareRecord;
   engineGpuCount: 1;
   engineEconomicsOverrides: {
     hostPurchasePriceUSD: 0;
     hostIdlePowerWatts: 0;
     hostLoadPowerWatts: 0;
     gpuIdlePowerRatio: number;
-  };
+  } | null;
 }

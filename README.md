@@ -98,6 +98,12 @@ Changing the starting point reorders the single page; it does not create a secon
 
 Simple Mode is also a presentation layer, not a hidden formula. Use-case and frequency choices load editable starting values. Requests per user/day, users, tokens, steps, concurrency, context, hours, and working days remain visible and editable in Simple Mode. Advanced Mode accepts the normalized monthly request total directly.
 
+Frequency names such as Daily, Heavy, or Always-on are not treated as universal
+customer definitions. Each option displays its Data Pack values for requests per
+user per working day, active hours per day, working days per month, and the
+derived requests per user per month. The selected option is only a starting
+point; every displayed number remains editable for the actual customer.
+
 The header switches the full static UI between English and Simplified Chinese. The preference is local to the browser and does not alter scenario math or shared URLs. Product/vendor names remain source data; presets, Simple templates, and capability tiers carry `en` and `zh-CN` labels in the Data Pack so newly added options can be bilingual without a React edit.
 
 ## How static data loads
@@ -217,17 +223,38 @@ Do not place provider-specific speed or latency in the base model record. Those 
 
 Scores from different benchmark sources or methodology versions must not be compared on the same numerical axis without an explicit normalization method.
 
+The bundled catalog currently contains 20 representative local/open-weight
+models across compact workstation, 24–32 GB, 48–72 GB, and large unified-memory
+planning ranges. It is intentionally a curated starting set, not a claim to
+list every model on the market. The Artificial Analysis open-model index is
+used for mainstream-family discovery; architecture, parameter count, context,
+license, and deployment notes are checked against publisher model cards. No
+Artificial Analysis hosted price, speed, latency, or Intelligence score is
+silently converted into local-hardware performance evidence. Add more models
+through a Full Data Pack or the Browser Library without changing calculator
+code.
+
+When the comparison metric is **Intelligence**, the UI explains the current
+Artificial Analysis Intelligence Index v4.1.1 methodology: nine evaluations
+weighted across Agents (34%), Coding (24%), Scientific Reasoning (24%), and
+General (18%), generally under English-text, pass@1-style conditions. It is a
+relative composite score, not proof that a model runs locally, meets a TPS
+target, or fits a particular customer task. Imported records are compared only
+within one declared endpoint and index version; bundled directional sample
+scores are explicitly identified as a different cohort.
+
 ## Add or update a GPU
 
 1. Open `public/data/gpus.json`.
 2. Add a unique stable `id`, display name, vendor, `vramGB`, `memoryBandwidthGBps`, `tdpWatts`, `streetPriceUSD`, and interconnect.
-3. Declare any supported positive integer counts (for example `1`, `2`, `4`, or `8`) and whether tensor parallelism is supported. The UI reads this list directly.
-4. Update the catalog date and source.
-5. Add defensible combinations to `inference-profiles.json` when measured or derived performance evidence is available.
-6. Check the matching interconnect/count efficiency factors in `assumptions.json`.
-7. Run `npm run check`.
+3. Declare physically offered positive integer counts (for example `1`, `2`, `4`, or `8`) in `supportedCounts`. Set `supportsTensorParallel` only when one model has defensible model-sharding evidence; a physical dual-card option may therefore have `[1, 2]` with this flag set to `false`.
+4. Optionally add vendor `peakAiTops` with its exact precision basis. AI TOPS requires dated `specification` evidence with an HTTP(S) source and is never converted into LLM TPS.
+5. Add dated `evidence` entries for specifications, price references, and system qualification; update the catalog date and source.
+6. Add defensible combinations to `inference-profiles.json` when measured or derived performance evidence is available.
+7. Check the matching interconnect/count efficiency factors in `assumptions.json` for counts with validated tensor parallelism.
+8. Run `npm run check`.
 
-Total memory capacity may scale with GPU count. Performance never assumes perfect linear scaling; the calculator looks up the exact interconnect/count efficiency in `assumptions.json`. If a new count has no factor, it uses a conservative aggregate `1×` fallback and emits a visible warning instead of interpolating or assuming linear scale.
+Model-available memory scales with GPU count only when `supportsTensorParallel` is true. Otherwise the UI still allows a physically offered multi-card configuration but keeps one model's available memory at one card and does not scale a single-card performance profile. With validated tensor parallelism, performance still never assumes perfect linear scaling: the calculator uses the exact interconnect/count factor in `assumptions.json`, or a conservative aggregate `1×` fallback when that factor is missing.
 
 ## Add or update a complete desktop system
 
@@ -237,7 +264,7 @@ Edit `public/data/systems.json` when the product being compared is a complete wo
 2. Choose `memoryArchitecture: "dedicated"` or `"unified"`.
 3. For dedicated memory, enter `dedicatedMemoryGBPerDevice`; for unified memory, enter `allocatableUnifiedMemoryGB`. Also record installed `systemMemoryGB` and a non-empty memory-type label such as `DDR5`, `DDR5-ECC`, `LPDDR5X`, or `Unified`; the list is data-defined.
 4. Set a user-facing `acceleratorType`, a stable `acceleratorBehaviorCategory` (`gpu`, `ai-accelerator`, `npu`, or `other`), and any positive integer physical count. The label can evolve without changing calculation behavior.
-5. Record aggregate memory bandwidth plus whole-system idle/load watts and the whole-system USD purchase price. These values are treated as one machine and are not multiplied by accelerator count.
+5. Record aggregate memory bandwidth. For a Data Pack system, whole-system idle/load watts and the USD purchase price may be `null` when evidence is unavailable; missing values disable Local/Hybrid economics and break-even instead of becoming zero. When present, the values are treated as one machine and are never multiplied by accelerator count. Browser-saved custom systems still require all three economic inputs.
 6. Record runtime support and its evidence method. Runtime support is separate from memory fit.
 7. `peakTops` is optional and remains a specification only. Never derive LLM TPS from TOPS.
 8. Add `performance` only when it is bound to a model and, when known, quantization, context, concurrency, TPS, TTFT, and evidence method.
@@ -252,6 +279,15 @@ Catalog desktop systems are part of every portable Full Data Pack. Unsaved
 Custom System form values remain scenario inputs that travel with URL/local
 scenario state. Saved browser systems travel only in a separately exported
 Browser Library.
+
+The bundled ThinkCentre X Ultra and X Tower entries are directional pre-release
+defaults based on the user-supplied product slides plus official accelerator
+specifications. X Tower load figures are labeled as the U9/U7 **calculated
+power** values from the supplied TCX 34L Thermal Matrix; they are not measured
+wall-power observations, and idle power remains unavailable. Dual-card Tower
+records preserve physical installed memory but do not pool it for model fit
+until model sharding is explicitly supported. No TPS or TTFT is inferred from
+TOPS, TGP, PSU size, memory bandwidth, or a model compatibility claim.
 
 ## Currency and daily reference rates
 

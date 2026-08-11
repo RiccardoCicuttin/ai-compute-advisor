@@ -9,13 +9,13 @@ import {
 } from "../index";
 
 describe("desktop system catalog", () => {
-  it("parses four explicitly directional examples", () => {
+  it("parses the bundled directional system catalog", () => {
     const catalog = parseDesktopSystemsCatalog(systemsJson);
-    expect(catalog.data).toHaveLength(4);
+    expect(catalog.data.length).toBeGreaterThanOrEqual(4);
     expect(catalog.data.every((system) => system.dataQuality === "directional")).toBe(true);
-    expect(new Set(catalog.data.map((system) => system.acceleratorType))).toEqual(
-      new Set(["GPU", "AI accelerator", "NPU"]),
-    );
+    expect(catalog.data.some((system) => system.acceleratorType === "GPU")).toBe(true);
+    expect(catalog.data.some((system) => system.acceleratorType === "AI accelerator")).toBe(true);
+    expect(catalog.data.some((system) => system.acceleratorType === "NPU")).toBe(true);
   });
 
   it("rejects incompatible memory fields and invalid whole-system power", () => {
@@ -29,9 +29,29 @@ describe("desktop system catalog", () => {
     expect(
       DesktopSystemRecordSchema.safeParse({
         ...dedicated,
-        systemIdleWatts: dedicated.systemLoadWatts + 1,
+        systemIdleWatts: dedicated.systemLoadWatts! + 1,
       }).success,
     ).toBe(false);
+  });
+
+  it("accepts unavailable catalog economics but keeps custom economics required", () => {
+    const base = parseDesktopSystemsCatalog(systemsJson).data[0]!;
+    const unavailable = {
+      ...base,
+      systemIdleWatts: null,
+      systemLoadWatts: null,
+      purchasePriceUSD: null,
+    };
+
+    expect(DesktopSystemRecordSchema.safeParse(unavailable).success).toBe(true);
+
+    const {
+      dataQuality: _dataQuality,
+      lastUpdated: _lastUpdated,
+      source: _source,
+      ...customShape
+    } = unavailable;
+    expect(CustomDesktopSystemConfigSchema.safeParse(customShape).success).toBe(false);
   });
 });
 
@@ -67,16 +87,44 @@ describe("normalizeDesktopSystem", () => {
   it("encodes exact whole-system idle/load power for the existing cost formula", () => {
     const system = catalog.data[0]!;
     const normalized = normalizeDesktopSystem(system);
+    const overrides = normalized.engineEconomicsOverrides;
+    if (
+      normalized.engineGpu.tdpWatts === null ||
+      overrides === null ||
+      system.systemIdleWatts === null ||
+      system.systemLoadWatts === null
+    ) {
+      throw new Error("Fixture must contain complete whole-system economics");
+    }
     const utilization = 0.4;
     const reconstructedPower =
       normalized.engineGpu.tdpWatts *
-      (normalized.engineEconomicsOverrides.gpuIdlePowerRatio +
-        (1 - normalized.engineEconomicsOverrides.gpuIdlePowerRatio) * utilization);
+      (overrides.gpuIdlePowerRatio +
+        (1 - overrides.gpuIdlePowerRatio) * utilization);
     const expectedPower =
       system.systemIdleWatts + (system.systemLoadWatts - system.systemIdleWatts) * utilization;
 
-    expect(normalized.engineEconomicsOverrides.hostPurchasePriceUSD).toBe(0);
+    expect(overrides.hostPurchasePriceUSD).toBe(0);
     expect(reconstructedPower).toBeCloseTo(expectedPower, 10);
+  });
+
+  it("preserves partial economics evidence without treating it as complete", () => {
+    const system = {
+      ...catalog.data[0]!,
+      systemIdleWatts: null,
+      systemLoadWatts: 1_275,
+      purchasePriceUSD: null,
+    };
+    const normalized = normalizeDesktopSystem(system);
+
+    expect(normalized.economicsEvidenceAvailable).toBe(false);
+    expect(normalized.wholeSystemIdleWatts).toBeNull();
+    expect(normalized.wholeSystemLoadWatts).toBe(1_275);
+    expect(normalized.wholeSystemPurchasePriceUSD).toBeNull();
+    expect(normalized.engineGpu.tdpWatts).toBe(1_275);
+    expect(normalized.engineGpu.streetPriceUSD).toBeNull();
+    expect(normalized.engineEconomicsOverrides).toBeNull();
+    expect(normalized.totalAvailableMemoryGB).toBeGreaterThan(0);
   });
 
   it("never converts TOPS to TPS", () => {

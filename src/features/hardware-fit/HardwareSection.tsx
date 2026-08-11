@@ -1,6 +1,7 @@
-import { Cpu, Gauge, MemoryStick, TriangleAlert } from "lucide-react";
+import { Cpu, ExternalLink, Gauge, MemoryStick, TriangleAlert } from "lucide-react";
 import type {
   AnalysisResult,
+  ComputeHardwareRecord,
   CustomDesktopSystemDraft,
   GpuCount,
   GpuRecord,
@@ -40,6 +41,12 @@ const fitTone: Record<NonNullable<AnalysisResult["hardwareFit"]>["status"], Tone
   recommended: "green",
   comfortable: "green",
 };
+
+const evidenceKindTranslationKey = {
+  specification: "hardware.evidenceKind.specification",
+  price: "hardware.evidenceKind.price",
+  "system-qualification": "hardware.evidenceKind.system-qualification",
+} as const;
 
 function formatMemoryValue(value: number | null | undefined, t: Translate) {
   return value == null || !Number.isFinite(value)
@@ -104,7 +111,7 @@ function GpuConfiguration({
   onGpuChange,
   onCountChange,
 }: {
-  selectedGpu: GpuRecord | null;
+  selectedGpu: ComputeHardwareRecord | null;
   gpus: GpuRecord[];
   count: GpuCount;
   recommended: boolean;
@@ -130,7 +137,7 @@ function GpuConfiguration({
             {gpus.map((gpu) => <option key={gpu.id} value={gpu.id}>{gpu.vendor} {gpu.name} · {formatNumber(gpu.vramGB, 1, locale)} GB</option>)}
           </select>
         </Field>
-        <Field label={t("hardware.gpuCount")}>
+        <Field label={t("hardware.gpuCount")} hint={t("hardware.physicalCountHint")}>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(88px,1fr))] gap-2">
             {countOptions.map((value) => (
               <button key={value} type="button" aria-pressed={count === value} onClick={() => onCountChange(value)} className={`min-h-10 rounded-lg border text-sm font-bold transition ${count === value ? "border-blue-600 bg-blue-50 text-blue-800" : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"}`}>
@@ -139,13 +146,60 @@ function GpuConfiguration({
             ))}
           </div>
         </Field>
+        {selectedGpu && count > 1 && !selectedGpu.supportsTensorParallel ? (
+          <InlineNotice tone="amber" title={t("hardware.unpooledMultiGpuTitle")}>
+            {t("hardware.unpooledMultiGpuDescription")}
+          </InlineNotice>
+        ) : null}
         {selectedGpu ? (
-          <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <Metric label={t("hardware.vramPerGpu")} value={formatMemoryValue(selectedGpu.vramGB, t)} />
-            <Metric label={t("hardware.bandwidth")} value={`${formatNumber(selectedGpu.memoryBandwidthGBps, 0, locale)} GB/s`} />
-            <Metric label={t("hardware.tdpPerGpu")} value={`${formatNumber(selectedGpu.tdpWatts, 0, locale)} W`} />
-            <Metric label={t("hardware.streetPrice")} value={formatUsd(selectedGpu.streetPriceUSD)} />
-          </div>
+          <>
+            <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <Metric label={t("hardware.vramPerGpu")} value={formatMemoryValue(selectedGpu.vramGB, t)} />
+              <Metric label={t("hardware.bandwidth")} value={`${formatNumber(selectedGpu.memoryBandwidthGBps, 0, locale)} GB/s`} />
+              <Metric label={t("hardware.tdpPerGpu")} value={selectedGpu.tdpWatts == null ? t("common.notAvailable") : `${formatNumber(selectedGpu.tdpWatts, 0, locale)} W`} />
+              <Metric label={t("hardware.streetPrice")} value={formatUsd(selectedGpu.streetPriceUSD)} />
+              <Metric label={t("hardware.interconnect")} value={sentenceCase(selectedGpu.interconnect, locale)} />
+              <Metric
+                label={t("hardware.aiTops")}
+                value={selectedGpu.peakAiTops ? `${formatNumber(selectedGpu.peakAiTops.value, 0, locale)} TOPS` : t("common.notAvailable")}
+                note={selectedGpu.peakAiTops ? `${selectedGpu.peakAiTops.precision} · ${t("hardware.aiTopsNotTps")}` : undefined}
+              />
+              <Metric
+                label={t("hardware.modelMemoryPooling")}
+                value={selectedGpu.supportsTensorParallel ? t("hardware.poolingValidated") : t("hardware.poolingNotValidated")}
+                className="col-span-2"
+              />
+            </div>
+            {selectedGpu.evidence?.length ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50/70 p-3">
+                <h4 className="text-sm font-bold text-blue-950">{t("hardware.evidenceSources")}</h4>
+                <ul className="mt-2 grid gap-2">
+                  {selectedGpu.evidence.map((evidence, index) => (
+                    <li key={`${evidence.kind}-${evidence.observedAt}-${index}`} className="rounded-md border border-blue-100 bg-white px-3 py-2 text-xs leading-5 text-slate-600">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        {evidence.url ? (
+                          <a className="inline-flex items-center gap-1 font-bold text-blue-800 underline decoration-blue-300 underline-offset-2 hover:text-blue-950" href={evidence.url} target="_blank" rel="noreferrer">
+                            {evidence.label}
+                            <ExternalLink className="size-3" aria-hidden="true" />
+                          </a>
+                        ) : (
+                          <span className="font-bold text-slate-800">{evidence.label}</span>
+                        )}
+                        <span>{t(evidenceKindTranslationKey[evidence.kind])}</span>
+                        <span>{t("hardware.evidenceChecked", { date: evidence.observedAt })}</span>
+                      </div>
+                      {evidence.notes ? <p className="mt-0.5">{evidence.notes}</p> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {selectedGpu.notes ? (
+              <InlineNotice tone="amber" title={t("hardware.catalogCaveatsTitle")}>
+                {selectedGpu.notes}
+              </InlineNotice>
+            ) : null}
+          </>
         ) : null}
       </div>
     </Panel>
@@ -280,6 +334,10 @@ export function HardwareSection({
 }) {
   const { locale, t } = useI18n();
   const mode = analysis.config.hardwareSelection.mode;
+  const selectedCatalogGpu =
+    mode === "system"
+      ? null
+      : gpus.find((gpu) => gpu.id === analysis.selectedGpu?.id) ?? null;
   const customSystem = analysis.config.hardwareSelection.customSystem ?? createDefaultCustomSystemDraft();
   const browserSystemIds = new Set(browserSystems.map((system) => system.id));
   const dataPackSystems = systems.filter((system) => !browserSystemIds.has(system.id));
@@ -384,7 +442,7 @@ export function HardwareSection({
       ) : null}
 
       <div className={`grid gap-5 ${mode === "system" ? "mt-5 xl:grid-cols-2" : "xl:grid-cols-3"}`}>
-        {mode !== "system" ? <GpuConfiguration selectedGpu={analysis.selectedGpu} gpus={gpus} count={analysis.config.hardwareSelection.gpuCount} recommended={mode === "recommended"} formatUsd={formatUsd} onGpuChange={onGpuChange} onCountChange={onCountChange} /> : null}
+        {mode !== "system" ? <GpuConfiguration selectedGpu={selectedCatalogGpu} gpus={gpus} count={analysis.config.hardwareSelection.gpuCount} recommended={mode === "recommended"} formatUsd={formatUsd} onGpuChange={onGpuChange} onCountChange={onCountChange} /> : null}
         <MemoryRequirementPanel analysis={analysis} />
         <FitPanel analysis={analysis} onViewCalculation={onViewCalculation} />
       </div>

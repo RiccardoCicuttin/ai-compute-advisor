@@ -1,7 +1,7 @@
 import type {
   AssumptionsRecord,
+  ComputeHardwareRecord,
   GpuCount,
-  GpuRecord,
   InferenceProfileRecord,
   PerformanceResult,
   TokenDemandResult,
@@ -13,7 +13,7 @@ import { resolveMultiGpuEfficiency } from "./multiGpuEfficiency";
 export interface PerformanceInput {
   modelId: string;
   quantizationId: string;
-  gpu: GpuRecord;
+  gpu: ComputeHardwareRecord;
   gpuCount: GpuCount;
   workload: WorkloadConfig;
   tokenDemand: TokenDemandResult;
@@ -35,12 +35,19 @@ export function calculatePerformanceCapacity(input: PerformanceInput): Performan
       profile.concurrency === input.workload.peakConcurrentUsers,
   );
   const sameCount = candidates.find((profile) => profile.gpuCount === input.gpuCount);
-  const baseProfile = exact ?? sameCount ?? candidates[0];
+  const requiresMatchingPhysicalCountEvidence =
+    input.gpuCount > 1 && !input.gpu.supportsTensorParallel;
+  const baseProfile =
+    exact ??
+    sameCount ??
+    (requiresMatchingPhysicalCountEvidence ? undefined : candidates[0]);
   const operatingHours = input.workload.workingHoursPerDay * input.workload.workingDaysPerMonth;
 
   if (!baseProfile) {
     const warnings = [
-      "No matching local inference profile is available; compute utilization is not estimated.",
+      requiresMatchingPhysicalCountEvidence
+        ? "PHYSICAL_MULTI_GPU_PROFILE_UNAVAILABLE: no performance profile matches this physical card count, and tensor-parallel/model-sharding support is not validated; throughput is not scaled from a single-card profile."
+        : "No matching local inference profile is available; compute utilization is not estimated.",
     ];
     return {
       method: "unavailable",
@@ -92,6 +99,11 @@ export function calculatePerformanceCapacity(input: PerformanceInput): Performan
   }
   if (!isExact) {
     warnings.push("Performance uses the nearest available profile and is scaled as an estimate.");
+  }
+  if (requiresMatchingPhysicalCountEvidence) {
+    warnings.push(
+      "The matching multi-card profile may describe aggregate serving capacity; it does not establish pooled model memory.",
+    );
   }
   if (workloadComputeUtilizationRatio !== null && workloadComputeUtilizationRatio > 1) {
     warnings.push("Estimated workload demand exceeds the selected hardware profile capacity.");

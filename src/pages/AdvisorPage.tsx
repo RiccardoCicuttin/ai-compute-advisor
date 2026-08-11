@@ -596,6 +596,7 @@ function AdvisorWorkspace({
       benchmarks={activeCatalogs.modelBenchmarks}
       pricing={activeCatalogs.cloudPricing}
       modelLastUpdated={activeCatalogs.metadata.models.lastUpdated}
+      modelCatalogSource={activeCatalogs.metadata.models.source}
       currency={state.config.economics.displayCurrency}
       exchangeRates={effectiveExchangeRates}
       onSelectModel={updateModel}

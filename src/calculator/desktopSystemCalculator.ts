@@ -255,6 +255,18 @@ export function resolveDesktopSystem(
       ? "The selected desktop system uses directional sample data; replace it with verified product data before quoting."
       : "Verify the selected system against the deployment runtime and model build.",
   ];
+  const missingEconomicsEvidence = [
+    record.purchasePriceUSD === null ? "whole-system purchase price" : null,
+    record.systemIdleWatts === null ? "whole-system idle power" : null,
+    record.systemLoadWatts === null ? "whole-system load power" : null,
+  ].filter((field): field is string => field !== null);
+  if (missingEconomicsEvidence.length > 0) {
+    warnings.push(
+      `Local economics are unavailable because the catalog record lacks ${missingEconomicsEvidence.join(
+        ", ",
+      )}. Local and hybrid cost, break-even, and cost-based recommendations are not calculated.`,
+    );
+  }
   if (record.peakTops) {
     warnings.push("Peak TOPS is shown as a specification and is never converted into LLM TPS.");
   }

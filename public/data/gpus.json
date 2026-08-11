@@ -1,15 +1,130 @@
 {
   "schemaVersion": 1,
   "catalogId": "gpus",
-  "lastUpdated": "2026-08-10",
+  "lastUpdated": "2026-08-11",
   "source": {
-    "label": "Bundled directional hardware sample",
-    "methodology": "Representative specifications and planning prices; street pricing varies by region and date."
+    "label": "Bundled directional hardware catalog with official NVIDIA specifications",
+    "url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/",
+    "methodology": "Legacy entries retain representative planning inputs. Added NVIDIA entries use official vendor specifications and vendor list or Marketplace reference prices; ThinkCentre X Tower qualification statuses come from a user-provided pre-release Lenovo option snapshot. supportedCounts describes physically offered card counts, while supportsTensorParallel separately controls whether one model may pool their memory. Prices vary by region and date. No LLM throughput is inferred from AI TOPS or other board specifications."
   },
   "data": [
     { "id": "rtx-4090-24gb", "name": "GeForce RTX 4090 24GB", "vendor": "NVIDIA", "vramGB": 24, "memoryBandwidthGBps": 1008, "tdpWatts": 450, "streetPriceUSD": 1800, "interconnect": "pcie", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true, "notes": "Multi-GPU requires software support; no NVLink." },
     { "id": "rtx-6000-ada-48gb", "name": "RTX 6000 Ada 48GB", "vendor": "NVIDIA", "vramGB": 48, "memoryBandwidthGBps": 960, "tdpWatts": 300, "streetPriceUSD": 6800, "interconnect": "pcie", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true },
     { "id": "a100-80gb", "name": "A100 80GB", "vendor": "NVIDIA", "vramGB": 80, "memoryBandwidthGBps": 2039, "tdpWatts": 400, "streetPriceUSD": 15000, "interconnect": "nvlink", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true, "notes": "Planning price is illustrative and excludes server integration." },
-    { "id": "h100-sxm-80gb", "name": "H100 SXM 80GB", "vendor": "NVIDIA", "vramGB": 80, "memoryBandwidthGBps": 3350, "tdpWatts": 700, "streetPriceUSD": 28000, "interconnect": "nvlink", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true, "notes": "Planning price is illustrative and excludes server integration." }
+    { "id": "h100-sxm-80gb", "name": "H100 SXM 80GB", "vendor": "NVIDIA", "vramGB": 80, "memoryBandwidthGBps": 3350, "tdpWatts": 700, "streetPriceUSD": 28000, "interconnect": "nvlink", "supportedCounts": [1, 2, 4], "supportsTensorParallel": true, "notes": "Planning price is illustrative and excludes server integration." },
+    {
+      "id": "rtx-pro-5000-blackwell-48gb",
+      "name": "RTX PRO 5000 Blackwell 48GB",
+      "vendor": "NVIDIA",
+      "vramGB": 48,
+      "memoryBandwidthGBps": 1344,
+      "tdpWatts": 300,
+      "streetPriceUSD": 5929.99,
+      "interconnect": "pcie",
+      "supportedCounts": [1, 2],
+      "supportsTensorParallel": false,
+      "peakAiTops": { "value": 2064, "precision": "FP4 Tensor Core (effective with sparsity; vendor peak)" },
+      "evidence": [
+        { "kind": "specification", "label": "NVIDIA RTX PRO 5000 Blackwell specifications", "url": "https://www.nvidia.com/en-us/products/workstations/professional-desktop-gpus/rtx-pro-5000/", "observedAt": "2026-08-11" },
+        { "kind": "price", "label": "NVIDIA Marketplace PNY 48GB reference listing", "url": "https://marketplace.nvidia.com/en-us/enterprise/laptops-workstations/", "observedAt": "2026-08-11", "notes": "Observed out of stock; not a Lenovo system price." },
+        { "kind": "system-qualification", "label": "User-provided pre-release ThinkCentre X Tower option snapshot", "observedAt": "2026-08-11", "notes": "Single and dual cards marked Tech Ready; dual cards require a riser. Hardware validation and certification remain pending." }
+      ],
+      "notes": "The ThinkCentre snapshot supports selecting one or two physical cards. Tensor-parallel/model-sharding evidence is not yet validated, so the calculator does not pool the two cards' memory. Validate the final Lenovo configuration, runtime, PSU and thermals before quoting. AI TOPS is arithmetic metadata and is never converted into LLM TPS."
+    },
+    {
+      "id": "rtx-pro-5000-blackwell-72gb",
+      "name": "RTX PRO 5000 Blackwell 72GB",
+      "vendor": "NVIDIA",
+      "vramGB": 72,
+      "memoryBandwidthGBps": 1344,
+      "tdpWatts": 300,
+      "streetPriceUSD": 8229.99,
+      "interconnect": "pcie",
+      "supportedCounts": [1, 2],
+      "supportsTensorParallel": false,
+      "peakAiTops": { "value": 2064, "precision": "FP4 Tensor Core (effective with sparsity; vendor peak)" },
+      "evidence": [
+        { "kind": "specification", "label": "NVIDIA RTX PRO 5000 Blackwell specifications", "url": "https://www.nvidia.com/en-us/products/workstations/professional-desktop-gpus/rtx-pro-5000/", "observedAt": "2026-08-11" },
+        { "kind": "price", "label": "NVIDIA Marketplace PNY 72GB reference listing", "url": "https://marketplace.nvidia.com/en-us/enterprise/laptops-workstations/", "observedAt": "2026-08-11", "notes": "Observed out of stock; not a Lenovo system price." },
+        { "kind": "system-qualification", "label": "User-provided pre-release ThinkCentre X Tower option snapshot", "observedAt": "2026-08-11", "notes": "Single and dual cards marked Tech Ready; dual cards require a riser. Hardware validation and certification remain pending." }
+      ],
+      "notes": "The ThinkCentre snapshot supports selecting one or two physical cards. Tensor-parallel/model-sharding evidence is not yet validated, so the calculator does not pool the two cards' memory. Validate the final Lenovo configuration, runtime, PSU and thermals before quoting. AI TOPS is arithmetic metadata and is never converted into LLM TPS."
+    },
+    {
+      "id": "rtx-5090-32gb",
+      "name": "GeForce RTX 5090 32GB",
+      "vendor": "NVIDIA",
+      "vramGB": 32,
+      "memoryBandwidthGBps": 1792,
+      "tdpWatts": 575,
+      "streetPriceUSD": 1999,
+      "interconnect": "pcie",
+      "supportedCounts": [1],
+      "supportsTensorParallel": false,
+      "peakAiTops": { "value": 3352, "precision": "FP4 Tensor Core (effective with sparsity; vendor peak)" },
+      "evidence": [
+        { "kind": "specification", "label": "NVIDIA GeForce RTX 5090 specifications", "url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/", "observedAt": "2026-08-11" },
+        { "kind": "price", "label": "NVIDIA RTX 50 Series launch announcement", "url": "https://www.nvidia.com/en-us/geforce/news/rtx-50-series-graphics-cards-gpu-laptop-announcements/", "observedAt": "2026-08-11", "notes": "USD launch price; actual AIB and street prices vary." },
+        { "kind": "system-qualification", "label": "User-provided pre-release ThinkCentre X Tower option snapshot", "observedAt": "2026-08-11", "notes": "Listed as an MTM single-card option." }
+      ],
+      "notes": "Validate the final Lenovo configuration, card variant, PSU and thermals before quoting. AI TOPS is arithmetic metadata and is never converted into LLM TPS."
+    },
+    {
+      "id": "rtx-5090-d-v2-24gb",
+      "name": "GeForce RTX 5090 D v2 24GB",
+      "vendor": "NVIDIA",
+      "vramGB": 24,
+      "memoryBandwidthGBps": 1344,
+      "tdpWatts": 575,
+      "streetPriceUSD": 2446.325840697468,
+      "interconnect": "pcie",
+      "supportedCounts": [1],
+      "supportsTensorParallel": false,
+      "peakAiTops": { "value": 2375, "precision": "FP4 Tensor Core (effective with sparsity; vendor peak)" },
+      "evidence": [
+        { "kind": "specification", "label": "NVIDIA China GeForce RTX 5090 D v2 specifications", "url": "https://www.nvidia.cn/geforce/graphics-cards/50-series/rtx-5090-d-v2/", "observedAt": "2026-08-11" },
+        { "kind": "price", "label": "NVIDIA China CNY 16,499 starting price", "url": "https://www.nvidia.cn/geforce/graphics-cards/50-series/rtx-5090-d-v2/", "observedAt": "2026-08-11", "notes": "USD planning value uses the bundled 2026-08-10 rate of 6.7444 CNY per USD; not a US street price." },
+        { "kind": "system-qualification", "label": "User-provided pre-release ThinkCentre X Tower option snapshot", "observedAt": "2026-08-11", "notes": "Listed as an MTM/CTO/SPB single-card option; SPB means BOM ready in the snapshot." }
+      ],
+      "notes": "Validate regional availability and the final Lenovo configuration before quoting. AI TOPS is arithmetic metadata and is never converted into LLM TPS."
+    },
+    {
+      "id": "rtx-5080-16gb",
+      "name": "GeForce RTX 5080 16GB",
+      "vendor": "NVIDIA",
+      "vramGB": 16,
+      "memoryBandwidthGBps": 960,
+      "tdpWatts": 360,
+      "streetPriceUSD": 999,
+      "interconnect": "pcie",
+      "supportedCounts": [1],
+      "supportsTensorParallel": false,
+      "peakAiTops": { "value": 1801, "precision": "FP4 Tensor Core (effective with sparsity; vendor peak)" },
+      "evidence": [
+        { "kind": "specification", "label": "NVIDIA GeForce RTX 5080 specifications", "url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5080/", "observedAt": "2026-08-11" },
+        { "kind": "price", "label": "NVIDIA RTX 50 Series launch announcement", "url": "https://www.nvidia.com/en-us/geforce/news/rtx-50-series-graphics-cards-gpu-laptop-announcements/", "observedAt": "2026-08-11", "notes": "USD launch price; actual AIB and street prices vary." },
+        { "kind": "system-qualification", "label": "User-provided pre-release ThinkCentre X Tower option snapshot", "observedAt": "2026-08-11", "notes": "Listed as an MTM/CTO/SPB single-card option; SPB means BOM ready in the snapshot." }
+      ],
+      "notes": "Validate the final Lenovo configuration, card variant, PSU and thermals before quoting. AI TOPS is arithmetic metadata and is never converted into LLM TPS."
+    },
+    {
+      "id": "rtx-5060-ti-16gb",
+      "name": "GeForce RTX 5060 Ti 16GB",
+      "vendor": "NVIDIA",
+      "vramGB": 16,
+      "memoryBandwidthGBps": 448,
+      "tdpWatts": 180,
+      "streetPriceUSD": 429,
+      "interconnect": "pcie",
+      "supportedCounts": [1, 2],
+      "supportsTensorParallel": false,
+      "peakAiTops": { "value": 759, "precision": "FP4 Tensor Core (effective with sparsity; vendor peak)" },
+      "evidence": [
+        { "kind": "specification", "label": "NVIDIA GeForce RTX 5060 Ti specifications", "url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5060-family/", "observedAt": "2026-08-11" },
+        { "kind": "price", "label": "NVIDIA RTX 5060 family launch announcement", "url": "https://www.nvidia.com/en-us/geforce/news/rtx-5060-desktop-family-laptop-5060-coming-soon/", "observedAt": "2026-08-11", "notes": "16GB USD launch price; actual AIB and street prices vary." },
+        { "kind": "system-qualification", "label": "User-provided pre-release ThinkCentre X Tower option snapshot", "observedAt": "2026-08-11", "notes": "Single and dual cards listed as MTM/CTO/SPB; dual cards require a riser. SPB means BOM ready in the snapshot." }
+      ],
+      "notes": "The ThinkCentre snapshot supports selecting one or two physical cards. Tensor-parallel/model-sharding evidence is not yet validated, so the calculator does not pool the two cards' memory. Validate the final Lenovo configuration and runtime before quoting. AI TOPS is arithmetic metadata and is never converted into LLM TPS."
+    }
   ]
 }

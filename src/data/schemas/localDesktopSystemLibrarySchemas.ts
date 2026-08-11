@@ -8,13 +8,20 @@ const localDesktopSystemId = z
   .string()
   .regex(/^local\.system\.[a-z0-9][a-z0-9._-]*$/);
 
+const completeWholeSystemEconomics = z.object({
+  systemIdleWatts: z.number().finite().nonnegative(),
+  systemLoadWatts: z.number().finite().positive(),
+  purchasePriceUSD: z.number().finite().nonnegative(),
+});
+
 /**
  * Browser-local systems are valid calculator records with a separate ID
  * namespace. They remain directional user input rather than verified Data
  * Pack evidence.
  */
-export const LocalDesktopSystemRecordSchema = DesktopSystemRecordSchema.superRefine(
-  (record, context) => {
+export const LocalDesktopSystemRecordSchema = z
+  .intersection(DesktopSystemRecordSchema, completeWholeSystemEconomics)
+  .superRefine((record, context) => {
     if (!localDesktopSystemId.safeParse(record.id).success) {
       context.addIssue({
         code: "custom",
@@ -29,8 +36,7 @@ export const LocalDesktopSystemRecordSchema = DesktopSystemRecordSchema.superRef
         message: "Browser-local systems must be marked as directional data.",
       });
     }
-  },
-);
+  });
 
 export const LocalDesktopSystemLibrarySchema = z
   .strictObject({

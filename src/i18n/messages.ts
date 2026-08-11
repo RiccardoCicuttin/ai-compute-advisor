@@ -86,6 +86,20 @@ export const enMessages = {
   "workload.frequency.daily": "Daily",
   "workload.frequency.heavy": "Heavy",
   "workload.frequency.alwaysOn": "Always-on",
+  "workload.frequencyOption":
+    "{label}: {requests} req/user/workday; {monthlyRequests} req/user/month",
+  "workload.frequencyDefinitionTitle": "What this frequency means",
+  "workload.frequencyRequestsPerWorkingDay":
+    "Requests / user / working day",
+  "workload.frequencyWorkingHours": "Active hours / day",
+  "workload.frequencyWorkingDays": "Working days / month",
+  "workload.frequencyMonthlyRequestsPerUser":
+    "Derived requests / user / month",
+  "workload.frequencyRequestsValue": "{value} requests",
+  "workload.frequencyHoursValue": "{value} hours",
+  "workload.frequencyDaysValue": "{value} days",
+  "workload.frequencyDefinitionCaveat":
+    "This is a configurable Data Pack starting point, not a universal definition of occasional, daily or heavy use. Selecting it fills the editable values below; adjust them to the customer's real behavior before comparing solutions.",
   "workload.users": "Users",
   "workload.userPreset": "User count preset",
   "workload.exactUsers": "Exact user count",
@@ -230,8 +244,30 @@ export const enMessages = {
   "model.table.openSource": "Open source",
   "model.table.modelCatalog": "Model catalog",
   "model.table.selection": "Selection",
+  "model.catalogEvidenceTitle": "Catalog evidence and caveats",
+  "model.catalogPlanningCaveat":
+    "The calculator can estimate memory fit from catalog facts. Runtime compatibility, checkpoint availability, output quality and local TPS still require matching evidence.",
+  "model.catalogSource": "Catalog source",
   "model.comparisonFootnote":
     "Benchmark values use one source, methodology and scale cohort. Cloud price uses the lowest matching catalog input rate. Bundled observations remain directional.",
+  "intelligenceMethod.title": "How to interpret the intelligence score",
+  "intelligenceMethod.officialSummary":
+    "Artificial Analysis Intelligence Index v{version} combines {count} evaluations: Agents {agents}%, Coding {coding}%, Scientific Reasoning {scientific}%, and General {general}%.",
+  "intelligenceMethod.evaluationConditions":
+    "The evaluations are text-based, run in English and generally use pass@1.",
+  "intelligenceMethod.interpretationLimit":
+    "It is a composite relative indicator. It does not prove that a model runs locally, reaches a given TPS, or fits a specific customer task.",
+  "intelligenceMethod.cohortRule":
+    "Compare scores only within the same source ID, methodology version and score-scale cohort.",
+  "intelligenceMethod.catalogSampleWarning":
+    "bundled-directional / sample-v1 values are project-authored directional samples, not Artificial Analysis Index results. Do not cite or label them as AA scores.",
+  "intelligenceMethod.currentCohort":
+    "Current chart cohort. Source: {source}. Method: {methodology}. Scale: {min}-{max}.",
+  "intelligenceMethod.snapshotVersions":
+    "Imported records declare index version(s): {versions}. Keep different versions in separate comparisons and verify that the source scale is unchanged.",
+  "intelligenceMethod.snapshotVersionMissing":
+    "The imported snapshot does not declare an index version; cross-model score comparability is unverified.",
+  "intelligenceMethod.officialMethodology": "Official methodology",
   "aaComparison.title": "Artificial Analysis comparison snapshot",
   "aaComparison.description":
     "Import a JSON snapshot saved from the official Artificial Analysis API, then select up to six models for an evidence comparison.",
@@ -255,6 +291,10 @@ export const enMessages = {
   "aaComparison.searchPlaceholder": "Model or creator",
   "aaComparison.selectionCount": "{selected} of {maximum} selected",
   "aaComparison.toggleModel": "Add or remove {model} from comparison",
+  "aaComparison.incompatibleCohort":
+    "Select models from one source endpoint and one declared Intelligence Index version at a time.",
+  "aaComparison.indexVersion": "Intelligence Index v{version}",
+  "aaComparison.indexVersionUnavailable": "Index version not declared",
   "aaComparison.deleteModel": "Delete {model} from the local snapshot",
   "aaComparison.delete": "Delete local record",
   "aaComparison.noSearchResults": "No imported model matches this search.",
@@ -280,7 +320,7 @@ export const enMessages = {
   "aaComparison.methodNote":
     "Metrics are displayed as reported by the imported snapshot. Compare models only within compatible methodology and measurement conditions.",
   "model.local.sourceHint":
-    "Data Pack models are read-only. Browser-library models can be added, edited and deleted on this device.",
+    "Data Pack models are read-only. Browser-library models can be added, edited and deleted on this device. Within each source, models are sorted A-Z by family and then parameter size.",
   "model.local.dataPackGroup": "Data Pack models (read-only)",
   "model.local.browserGroup": "Browser library (editable)",
   "model.local.noBrowserModels": "No browser models saved",
@@ -328,6 +368,7 @@ export const enMessages = {
   "model.local.modality.text": "Text",
   "model.local.modality.image": "Image",
   "model.local.modality.audio": "Audio",
+  "model.local.modality.video": "Video",
   "model.local.notes": "Notes / assumptions",
   "model.local.quantizations": "Quantization profiles",
   "model.local.quantizationDescription":
@@ -373,11 +414,28 @@ export const enMessages = {
   "hardware.eligibleHint":
     "Eligible catalog options are evaluated by the calculator.",
   "hardware.selectGpu": "Select a GPU",
-  "hardware.gpuCount": "GPU Count",
+  "hardware.gpuCount": "Physical GPU count",
+  "hardware.physicalCountHint":
+    "A physically installed card count does not by itself mean one model can pool their memory.",
   "hardware.vramPerGpu": "VRAM / GPU",
   "hardware.bandwidth": "Bandwidth",
   "hardware.tdpPerGpu": "TDP / GPU",
   "hardware.streetPrice": "Street price",
+  "hardware.interconnect": "Interconnect",
+  "hardware.aiTops": "Peak AI TOPS",
+  "hardware.aiTopsNotTps": "not LLM TPS",
+  "hardware.modelMemoryPooling": "Model-memory pooling",
+  "hardware.poolingValidated": "Validated in catalog",
+  "hardware.poolingNotValidated": "Not validated",
+  "hardware.unpooledMultiGpuTitle": "Two physical cards, memory not pooled",
+  "hardware.unpooledMultiGpuDescription":
+    "This option confirms that the system can be built with two cards. It does not confirm tensor parallelism or model sharding, so the calculator keeps memory available to one model at a single card and does not scale a single-card performance profile.",
+  "hardware.evidenceSources": "Evidence sources",
+  "hardware.evidenceKind.specification": "Specification",
+  "hardware.evidenceKind.price": "Price reference",
+  "hardware.evidenceKind.system-qualification": "System qualification",
+  "hardware.evidenceChecked": "checked {date}",
+  "hardware.catalogCaveatsTitle": "Catalog evidence and compatibility notes",
   "hardware.memoryRequirement": "Model memory requirement",
   "hardware.modelWeights": "Model weights",
   "hardware.kvCache": "KV cache",
@@ -415,7 +473,7 @@ export const enMessages = {
   "hardware.performanceUnavailableTitle": "Performance not estimated",
   "hardware.performanceUnavailableDescription":
     "Memory fit remains available, but throughput is not inferred without a defensible model, runtime and hardware observation.",
-  "hardware.gpuCountValue": "{count} GPU",
+  "hardware.gpuCountValue": "{count} × GPU",
   "hardware.configurationFirstFallbackTitle":
     "Configuration-first needs a concrete configuration",
   "hardware.configurationFirstFallbackDescription":
@@ -451,10 +509,17 @@ export const enMessages = {
   "localSystem.purchasePrice": "Purchase price",
   "localSystem.updated": "Updated {date}",
   "localSystem.catalogEvidence": "{quality} data; {support} runtime support.",
-  "localSystem.idleLoad": "{idle} W idle; {load} W load",
+  "localSystem.idleLoad": "Idle: {idle}; load: {load}",
   "localSystem.tops": "TOPS",
   "localSystem.effectiveLlmTps": "Effective LLM TPS",
   "localSystem.notes": "Notes",
+  "localSystem.catalogCaveatsTitle": "Catalog evidence and caveats",
+  "localSystem.economicsUnavailableTitle": "Whole-system economics unavailable",
+  "localSystem.economicsUnavailableDescription":
+    "At least one of purchase price, idle power or load power was not provided. Missing values remain unavailable; Local and Hybrid cost and break-even are not calculated until all three values are available.",
+  "localSystem.performanceEvidenceMissingTitle": "Memory fit only — TPS unavailable",
+  "localSystem.performanceEvidenceMissingDescription":
+    "No model-bound performance profile is available for this system. The calculator can check memory capacity, but does not infer TPS, first-token latency, concurrency or monthly token capacity from TOPS or hardware specifications.",
   "localSystem.systemMemorySection": "System and memory",
   "localSystem.systemName": "System Name",
   "localSystem.systemNameAria": "System name",
@@ -1056,6 +1121,18 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "workload.frequency.daily": "每天",
   "workload.frequency.heavy": "高频",
   "workload.frequency.alwaysOn": "持续运行",
+  "workload.frequencyOption":
+    "{label}：{requests} 次/用户/工作日；{monthlyRequests} 次/用户/月",
+  "workload.frequencyDefinitionTitle": "这个频率具体代表什么",
+  "workload.frequencyRequestsPerWorkingDay": "每位用户每工作日请求数",
+  "workload.frequencyWorkingHours": "每日活跃时长",
+  "workload.frequencyWorkingDays": "每月工作天数",
+  "workload.frequencyMonthlyRequestsPerUser": "推算每位用户月请求数",
+  "workload.frequencyRequestsValue": "{value} 次请求",
+  "workload.frequencyHoursValue": "{value} 小时",
+  "workload.frequencyDaysValue": "{value} 天",
+  "workload.frequencyDefinitionCaveat":
+    "这是 Data Pack 中可配置的起始口径，并非行业通用的“偶尔 / 日常 / 高频”定义。选择后会填充下方可编辑数字；比较方案前，请按客户真实行为调整。",
   "workload.users": "用户数",
   "workload.userPreset": "用户数预设",
   "workload.exactUsers": "准确用户数",
@@ -1197,8 +1274,30 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "model.table.openSource": "打开来源",
   "model.table.modelCatalog": "模型目录",
   "model.table.selection": "选择状态",
+  "model.catalogEvidenceTitle": "目录证据与使用限制",
+  "model.catalogPlanningCaveat":
+    "计算器可以根据目录事实估算显存适配；运行时兼容性、可用 checkpoint、输出质量和本地 TPS 仍需要对应证据。",
+  "model.catalogSource": "目录来源",
   "model.comparisonFootnote":
     "基准值仅采用同一来源、方法和量表基准组。云端价格使用匹配目录中的最低输入费率，内置观测仅供方向性参考。",
+  "intelligenceMethod.title": "如何理解智能评分",
+  "intelligenceMethod.officialSummary":
+    "Artificial Analysis Intelligence Index v{version} 综合 {count} 项评测：Agents {agents}%、Coding {coding}%、Scientific Reasoning {scientific}%、General {general}%。",
+  "intelligenceMethod.evaluationConditions":
+    "评测为英文文本任务，通常采用 pass@1（一次作答）口径。",
+  "intelligenceMethod.interpretationLimit":
+    "它是综合相对指标，不代表模型一定能在本地运行，也不保证达到某个 TPS 或适配具体客户任务。",
+  "intelligenceMethod.cohortRule":
+    "只有 sourceId、methodologyVersion 和评分量表三者相同的 cohort 才能横向比较。",
+  "intelligenceMethod.catalogSampleWarning":
+    "bundled-directional / sample-v1 是本项目编制的方向性样例，不是 Artificial Analysis Index 结果，不得作为或标注为 AA 分数。",
+  "intelligenceMethod.currentCohort":
+    "当前图表 cohort。来源：{source}。方法：{methodology}。量表：{min}-{max}。",
+  "intelligenceMethod.snapshotVersions":
+    "导入记录声明的指数版本：{versions}。不同版本应分开比较，并核对来源的评分量表没有变化。",
+  "intelligenceMethod.snapshotVersionMissing":
+    "导入快照没有声明指数版本，模型之间的智能分数可比性尚未验证。",
+  "intelligenceMethod.officialMethodology": "查看官方方法说明",
   "aaComparison.title": "Artificial Analysis 对比快照",
   "aaComparison.description":
     "导入由 Artificial Analysis 官方 API 保存的 JSON 快照，并选择最多 6 个模型进行证据对比。",
@@ -1222,6 +1321,10 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "aaComparison.searchPlaceholder": "模型或创建者",
   "aaComparison.selectionCount": "已选 {selected} / {maximum}",
   "aaComparison.toggleModel": "将 {model} 加入或移出对比",
+  "aaComparison.incompatibleCohort":
+    "一次只能选择同一来源接口、同一声明 Intelligence Index 版本的模型。",
+  "aaComparison.indexVersion": "Intelligence Index v{version}",
+  "aaComparison.indexVersionUnavailable": "未声明指数版本",
   "aaComparison.deleteModel": "从本地快照删除 {model}",
   "aaComparison.delete": "删除本地记录",
   "aaComparison.noSearchResults": "没有符合搜索条件的已导入模型。",
@@ -1246,7 +1349,7 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "aaComparison.methodNote":
     "指标按导入快照原值展示。只有在方法版本和测量条件兼容时才适合横向比较。",
   "model.local.sourceHint":
-    "Data Pack 模型只读；本机浏览器模型可以在此新增、编辑和删除。",
+    "Data Pack 模型只读；本机浏览器模型可以在此新增、编辑和删除。每个来源分组内按模型家族 A-Z 排列，同家族再按参数量从小到大排列。",
   "model.local.dataPackGroup": "Data Pack 模型（只读）",
   "model.local.browserGroup": "本机浏览器模型（可编辑）",
   "model.local.noBrowserModels": "尚未保存本机模型",
@@ -1292,6 +1395,7 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "model.local.modality.text": "文本",
   "model.local.modality.image": "图像",
   "model.local.modality.audio": "音频",
+  "model.local.modality.video": "视频",
   "model.local.notes": "备注 / 假设",
   "model.local.quantizations": "量化配置",
   "model.local.quantizationDescription":
@@ -1335,11 +1439,28 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "hardware.gpuModel": "GPU 型号",
   "hardware.eligibleHint": "计算器会评估目录中符合条件的选项。",
   "hardware.selectGpu": "选择 GPU",
-  "hardware.gpuCount": "GPU 数量",
+  "hardware.gpuCount": "物理 GPU 数量",
+  "hardware.physicalCountHint":
+    "整机可安装多张卡，不代表单个模型可以合并使用这些显存。",
   "hardware.vramPerGpu": "每卡显存",
   "hardware.bandwidth": "带宽",
   "hardware.tdpPerGpu": "每卡 TDP",
   "hardware.streetPrice": "市场价格",
+  "hardware.interconnect": "互联方式",
+  "hardware.aiTops": "峰值 AI TOPS",
+  "hardware.aiTopsNotTps": "不等于 LLM TPS",
+  "hardware.modelMemoryPooling": "模型显存合并",
+  "hardware.poolingValidated": "目录中已有验证",
+  "hardware.poolingNotValidated": "尚未验证",
+  "hardware.unpooledMultiGpuTitle": "可安装两张卡，但显存不合并",
+  "hardware.unpooledMultiGpuDescription":
+    "该选项只确认整机可以安装两张物理显卡，并未确认 Tensor Parallel 或模型分片能力。因此计算器仍按单卡显存判断一个模型能否运行，也不会用单卡性能记录推算双卡性能。",
+  "hardware.evidenceSources": "证据来源",
+  "hardware.evidenceKind.specification": "规格",
+  "hardware.evidenceKind.price": "价格参考",
+  "hardware.evidenceKind.system-qualification": "整机适配状态",
+  "hardware.evidenceChecked": "核对于 {date}",
+  "hardware.catalogCaveatsTitle": "目录证据与兼容性说明",
   "hardware.memoryRequirement": "模型内存需求",
   "hardware.modelWeights": "模型权重",
   "hardware.kvCache": "KV Cache",
@@ -1377,7 +1498,7 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "hardware.performanceUnavailableTitle": "未估算性能",
   "hardware.performanceUnavailableDescription":
     "内存适配结果仍可用，但缺少可辩护的模型、运行时和硬件观测时不会推断吞吐量。",
-  "hardware.gpuCountValue": "{count} 张 GPU",
+  "hardware.gpuCountValue": "{count} × GPU",
   "hardware.configurationFirstFallbackTitle": "配置优先需要明确的硬件配置",
   "hardware.configurationFirstFallbackDescription":
     "请选择 GPU 方案或桌面整机作为分析锚点。查找 GPU 会透明回退到工作负载优先推荐。",
@@ -1411,10 +1532,17 @@ export const zhCNMessages: Record<TranslationKey, string> = {
   "localSystem.purchasePrice": "采购价格",
   "localSystem.updated": "更新于 {date}",
   "localSystem.catalogEvidence": "{quality}数据；运行时支持：{support}。",
-  "localSystem.idleLoad": "空闲 {idle} W；负载 {load} W",
+  "localSystem.idleLoad": "空闲：{idle}；负载：{load}",
   "localSystem.tops": "TOPS",
   "localSystem.effectiveLlmTps": "有效 LLM TPS",
   "localSystem.notes": "备注",
+  "localSystem.catalogCaveatsTitle": "目录证据与注意事项",
+  "localSystem.economicsUnavailableTitle": "整机经济性数据暂不可用",
+  "localSystem.economicsUnavailableDescription":
+    "采购价格、空闲功耗或负载功耗中至少有一项未提供。缺失值会保持为“暂无数据”；三项数据齐全前，不计算本地与混合方案成本或盈亏平衡点。",
+  "localSystem.performanceEvidenceMissingTitle": "仅评估内存适配，TPS 暂不可用",
+  "localSystem.performanceEvidenceMissingDescription":
+    "该整机没有绑定具体模型的性能记录。计算器可以检查内存容量，但不会根据 TOPS 或硬件规格推导 TPS、首 Token 延迟、并发能力或月度 Token 容量。",
   "localSystem.systemMemorySection": "系统与内存",
   "localSystem.systemName": "系统名称",
   "localSystem.systemNameAria": "系统名称",

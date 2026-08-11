@@ -14,6 +14,7 @@ import type { CurrencyCode, ExchangeRateCatalog } from "../../currency";
 import { convertUsdToDisplay } from "../../currency";
 import { useI18n, type TranslationKey } from "../../i18n";
 import { EmptyValue, SegmentedControl, StatusBadge } from "../ui/AdvisorUI";
+import { IntelligenceMethodologyNotice } from "../../features/model-requirement/IntelligenceMethodologyNotice";
 
 type Metric =
   "intelligence" | "context" | "size" | "price" | "speed" | "latency";
@@ -25,6 +26,8 @@ interface ModelComparisonEvidenceView extends ModelComparisonView {
   benchmarkSourceId?: string | null;
   benchmarkMeasuredAt?: string | null;
   benchmarkMethodology?: string | null;
+  benchmarkScaleMin?: number | null;
+  benchmarkScaleMax?: number | null;
 }
 
 const metricMeta: Record<
@@ -118,6 +121,16 @@ export function ModelComparisonChart({
         ),
     [currency, exchangeRates, metric, models],
   );
+  const intelligenceCohort = models.find(
+    (model) =>
+      model.intelligence !== null &&
+      model.benchmarkSourceId &&
+      model.benchmarkMethodology &&
+      model.benchmarkScaleMin !== null &&
+      model.benchmarkScaleMin !== undefined &&
+      model.benchmarkScaleMax !== null &&
+      model.benchmarkScaleMax !== undefined,
+  );
 
   return (
     <div>
@@ -142,6 +155,25 @@ export function ModelComparisonChart({
           />
         </div>
       </div>
+
+      {metric === "intelligence" ? (
+        <div className="mb-4">
+          <IntelligenceMethodologyNotice
+            context="catalog"
+            catalogCohort={
+              intelligenceCohort
+                ? {
+                    sourceId: intelligenceCohort.benchmarkSourceId!,
+                    methodologyVersion:
+                      intelligenceCohort.benchmarkMethodology!,
+                    scaleMin: intelligenceCohort.benchmarkScaleMin!,
+                    scaleMax: intelligenceCohort.benchmarkScaleMax!,
+                  }
+                : null
+            }
+          />
+        </div>
+      ) : null}
 
       {data.length ? (
         <div

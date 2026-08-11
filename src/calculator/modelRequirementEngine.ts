@@ -1,6 +1,8 @@
 import type {
   CapabilityTierDefinition,
   CapabilityTierId,
+  CloudPricingRecord,
+  InferenceProfileRecord,
   ModelRecord,
   ModelRequirementResult,
   WorkloadConfig,
@@ -9,6 +11,39 @@ import {
   capabilityTierRank,
   compareCapabilityTiers,
 } from "./capabilityTiers";
+
+export interface ModelSelectionEvidence {
+  inferenceProfiles: readonly InferenceProfileRecord[];
+  cloudPricing: readonly CloudPricingRecord[];
+}
+
+interface ModelEvidenceAvailability {
+  hasInferenceProfile: boolean;
+  hasModelBoundCloudPricing: boolean;
+  rank: number;
+}
+
+function modelEvidenceAvailability(
+  model: ModelRecord,
+  evidence: ModelSelectionEvidence,
+): ModelEvidenceAvailability {
+  const hasInferenceProfile = evidence.inferenceProfiles.some(
+    (profile) =>
+      profile.modelId === model.id &&
+      profile.quantizationId === model.recommendedQuantizationId,
+  );
+  const hasModelBoundCloudPricing = evidence.cloudPricing.some(
+    (pricing) => pricing.modelId === model.id,
+  );
+
+  return {
+    hasInferenceProfile,
+    hasModelBoundCloudPricing,
+    // A model-bound cloud price is required for cloud/hybrid economics, so it
+    // wins a partial-evidence tie. Both signals still rank above either alone.
+    rank: (hasModelBoundCloudPricing ? 2 : 0) + (hasInferenceProfile ? 1 : 0),
+  };
+}
 
 export function modelMeetsWorkload(
   model: ModelRecord,
@@ -35,6 +70,7 @@ export function resolveModelRequirement(
   capabilityTiers: CapabilityTierDefinition[],
   requestedModelId?: string,
   selectionSource: "manual" | "configuration" = "manual",
+  evidence?: ModelSelectionEvidence,
 ): ModelRequirementResult {
   const eligible = models
     .filter((model) => modelMeetsWorkload(model, workload, capabilityTiers))
@@ -42,9 +78,16 @@ export function resolveModelRequirement(
       if (workload.privacyRequirement === "high" && left.openWeight !== right.openWeight) {
         return left.openWeight ? -1 : 1;
       }
+      if (evidence) {
+        const evidenceDifference =
+          modelEvidenceAvailability(right, evidence).rank -
+          modelEvidenceAvailability(left, evidence).rank;
+        if (evidenceDifference !== 0) return evidenceDifference;
+      }
       return (
         compareCapabilityTiers(left.capabilityTierId, right.capabilityTierId, capabilityTiers) ||
-        left.totalParametersB - right.totalParametersB
+        left.totalParametersB - right.totalParametersB ||
+        left.id.localeCompare(right.id)
       );
     });
 
@@ -84,6 +127,24 @@ export function resolveModelRequirement(
   }
   if (!selectedModel) warnings.push("No model in the bundled catalog meets all workload requirements.");
 
+  const selectedEvidence =
+    !requestedModel && selectedModel && evidence
+      ? modelEvidenceAvailability(selectedModel, evidence)
+      : null;
+  if (selectedEvidence && selectedEvidence.rank < 3) {
+    const missingEvidence = [
+      ...(selectedEvidence.hasModelBoundCloudPricing ? [] : ["model-bound cloud pricing"]),
+      ...(selectedEvidence.hasInferenceProfile
+        ? []
+        : ["a local inference profile for the recommended quantization"]),
+    ];
+    warnings.push(
+      `RECOMMENDED_MODEL_EVIDENCE_FALLBACK: '${selectedModel.id}' is the eligible model with the strongest available catalog evidence, but it is missing ${missingEvidence.join(
+        " and ",
+      )}. Unavailable TPS or cloud cost will remain unavailable rather than borrowing evidence from another model.`,
+    );
+  }
+
   const normalizedTierCode = workload.capabilityRequirementTierId
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "_");
@@ -98,6 +159,10 @@ export function resolveModelRequirement(
     reasonCodes.push(
       selectionSource === "manual" ? "MANUAL_MODEL_OVERRIDE" : "CONFIGURATION_FIRST_SELECTION",
     );
+  } else if (selectedEvidence?.rank === 3) {
+    reasonCodes.push("MODEL_BOUND_CALCULATION_EVIDENCE");
+  } else if (selectedEvidence) {
+    reasonCodes.push("PARTIAL_MODEL_EVIDENCE_FALLBACK");
   }
 
   return {

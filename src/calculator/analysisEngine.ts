@@ -2,6 +2,8 @@ import type {
   AdvisorConfig,
   AnalysisResult,
   CloudPricingRecord,
+  ComputeHardwareRecord,
+  EconomicsReadyComputeHardwareRecord,
   InferenceProfileRecord,
   NormalizedCatalogs,
   RecommendationResult,
@@ -96,27 +98,69 @@ function resolvePricing(
   config: AdvisorConfig,
   catalogs: NormalizedCatalogs,
   selectedModelId: string | null,
-): CloudPricingRecord | null {
-  const catalogPricing =
-    catalogs.cloudPricing.find((pricing) => pricing.id === config.economics.cloudPricingId) ??
-    catalogs.cloudPricing.find((pricing) => pricing.modelId === selectedModelId) ??
-    catalogs.cloudPricing[0] ??
-    null;
-  if (!config.economics.customCloudPricing) return catalogPricing;
-  return {
-    id: "custom-pricing",
-    provider: "Custom pricing",
-    modelId: selectedModelId ?? undefined,
-    modelName: catalogPricing?.modelName ?? "Custom cloud model",
-    currency: "USD",
-    inputPricePerMillionTokens:
-      config.economics.customCloudPricing.inputPricePerMillionTokens,
-    outputPricePerMillionTokens:
-      config.economics.customCloudPricing.outputPricePerMillionTokens,
-    cachedInputPricePerMillionTokens:
-      config.economics.customCloudPricing.cachedInputPricePerMillionTokens,
-    lastUpdated: catalogs.metadata.cloudPricing.lastUpdated,
-  };
+): { pricing: CloudPricingRecord | null; warnings: string[] } {
+  const selectedModel = selectedModelId
+    ? catalogs.models.find((model) => model.id === selectedModelId)
+    : undefined;
+  if (config.economics.customCloudPricing) {
+    return {
+      pricing: {
+        id: "custom-pricing",
+        provider: "Custom pricing",
+        modelId: selectedModelId ?? undefined,
+        modelName: selectedModel?.name ?? "Custom cloud model",
+        currency: "USD",
+        inputPricePerMillionTokens:
+          config.economics.customCloudPricing.inputPricePerMillionTokens,
+        outputPricePerMillionTokens:
+          config.economics.customCloudPricing.outputPricePerMillionTokens,
+        cachedInputPricePerMillionTokens:
+          config.economics.customCloudPricing.cachedInputPricePerMillionTokens,
+        lastUpdated: catalogs.metadata.cloudPricing.lastUpdated,
+      },
+      warnings: [],
+    };
+  }
+
+  if (!selectedModelId) return { pricing: null, warnings: [] };
+
+  const configuredPricing = catalogs.cloudPricing.find(
+    (pricing) => pricing.id === config.economics.cloudPricingId,
+  );
+  if (configuredPricing?.modelId === selectedModelId) {
+    return { pricing: configuredPricing, warnings: [] };
+  }
+
+  const matchingPricing = catalogs.cloudPricing.find(
+    (pricing) => pricing.modelId === selectedModelId,
+  );
+  const warnings: string[] = [];
+  if (configuredPricing) {
+    const configuredBinding = configuredPricing.modelId
+      ? `model '${configuredPricing.modelId}'`
+      : "no model";
+    warnings.push(
+      `CLOUD_PRICE_MODEL_MISMATCH: configured cloud price '${configuredPricing.id}' is bound to ${configuredBinding} and was not applied to selected model '${selectedModelId}'.`,
+    );
+  } else if (config.economics.cloudPricingId) {
+    warnings.push(
+      `CLOUD_PRICE_NOT_FOUND: configured cloud price '${config.economics.cloudPricingId}' is not present in the active catalog.`,
+    );
+  }
+
+  if (matchingPricing) {
+    if (warnings.length > 0) {
+      warnings.push(
+        `MODEL_BOUND_CLOUD_PRICE_FALLBACK: using '${matchingPricing.id}', which is explicitly bound to selected model '${selectedModelId}'.`,
+      );
+    }
+    return { pricing: matchingPricing, warnings };
+  }
+
+  warnings.push(
+    `MODEL_BOUND_CLOUD_PRICE_UNAVAILABLE: no cloud price in the active catalog is bound to selected model '${selectedModelId}'; cloud and hybrid costs are unavailable.`,
+  );
+  return { pricing: null, warnings };
 }
 
 function incompleteRecommendation(): RecommendationResult {
@@ -128,6 +172,12 @@ function incompleteRecommendation(): RecommendationResult {
     warnings: [],
     changeConditions: [],
   };
+}
+
+function hasHardwareEconomics(
+  hardware: ComputeHardwareRecord,
+): hardware is EconomicsReadyComputeHardwareRecord {
+  return hardware.tdpWatts !== null && hardware.streetPriceUSD !== null;
 }
 
 export function calculateAnalysis(
@@ -150,6 +200,10 @@ export function calculateAnalysis(
     catalogs.assumptions.capabilityTiers,
     requestedModelId,
     manualModelId ? "manual" : "configuration",
+    {
+      inferenceProfiles: catalogs.inferenceProfiles,
+      cloudPricing: catalogs.cloudPricing,
+    },
   );
   const selectedModel = modelRequirement.selectedModelId
     ? catalogs.models.find((model) => model.id === modelRequirement.selectedModelId) ?? null
@@ -201,6 +255,7 @@ export function calculateAnalysis(
         ? catalogs.gpus.find((gpu) => gpu.id === config.hardwareSelection.gpuId) ?? null
         : null;
   let selectedGpuCount = config.hardwareSelection.gpuCount;
+  const hardwareRecommendationWarnings: string[] = [];
   if (selectedSystem) {
     selectedGpuCount = selectedSystem.engineGpuCount;
     if (
@@ -216,11 +271,37 @@ export function calculateAnalysis(
         },
       };
     }
-  } else if (config.hardwareSelection.mode === "recommended" && vram) {
-    const recommendedOption = rankHardwareOptions(catalogs.gpus, vram, catalogs.assumptions)[0];
+  } else if (
+    config.hardwareSelection.mode === "recommended" &&
+    vram &&
+    selectedModel &&
+    selectedQuantization
+  ) {
+    const rankedOptions = rankHardwareOptions(
+      catalogs.gpus,
+      vram,
+      catalogs.assumptions,
+    );
+    const evidenceBackedOptions = rankedOptions.filter(
+      (option) =>
+        option.fit.status !== "cannot-run" &&
+        catalogs.inferenceProfiles.some(
+          (profile) =>
+            profile.modelId === selectedModel.id &&
+            profile.quantizationId === selectedQuantization.id &&
+            profile.gpuId === option.gpu.id &&
+            profile.gpuCount === option.gpuCount,
+        ),
+    );
+    const recommendedOption = evidenceBackedOptions[0] ?? rankedOptions[0];
     if (recommendedOption) {
       selectedGpu = recommendedOption.gpu;
       selectedGpuCount = recommendedOption.gpuCount;
+      if (evidenceBackedOptions.length === 0) {
+        hardwareRecommendationWarnings.push(
+          `RECOMMENDED_HARDWARE_PROFILE_FALLBACK: no hardware option that can fit '${selectedModel.id}' has an inference profile matching quantization '${selectedQuantization.id}', GPU and card count. Hardware remains selected by fit and price; no exact-profile evidence supports this choice, so downstream TPS is unavailable or explicitly estimated under separate scaling rules.`,
+        );
+      }
       resolvedConfig = {
         ...resolvedConfig,
         hardwareSelection: {
@@ -315,7 +396,18 @@ export function calculateAnalysis(
           ],
         }
       : calculatedPerformance;
-  const localCost = selectedGpu
+  const localEconomicsAssumptions = selectedSystem
+    ? selectedSystem.engineEconomicsOverrides
+      ? {
+          ...catalogs.assumptions.economics,
+          ...selectedSystem.engineEconomicsOverrides,
+        }
+      : null
+    : catalogs.assumptions.economics;
+  const localCost =
+    selectedGpu &&
+    hasHardwareEconomics(selectedGpu) &&
+    localEconomicsAssumptions
     ? calculateLocalCost({
         gpu: selectedGpu,
         gpuCount: selectedGpuCount,
@@ -325,15 +417,26 @@ export function calculateAnalysis(
         electricityPricePerKWh: config.economics.electricityPricePerKWh,
         hardwareLifetimeMonths: config.economics.hardwareLifetimeMonths,
         maintenanceCostMonthly: config.economics.maintenanceCostMonthly,
-        assumptions: selectedSystem
-          ? {
-              ...catalogs.assumptions.economics,
-              ...selectedSystem.engineEconomicsOverrides,
-            }
-          : catalogs.assumptions.economics,
+        assumptions: localEconomicsAssumptions,
       })
     : null;
-  const pricing = resolvePricing(config, catalogs, selectedModel?.id ?? null);
+  const pricingResolution = resolvePricing(config, catalogs, selectedModel?.id ?? null);
+  const pricing = pricingResolution.pricing;
+  if (!config.economics.customCloudPricing) {
+    if (pricing && pricing.id !== resolvedConfig.economics.cloudPricingId) {
+      resolvedConfig = {
+        ...resolvedConfig,
+        economics: {
+          ...resolvedConfig.economics,
+          cloudPricingId: pricing.id,
+        },
+      };
+    } else if (!pricing && resolvedConfig.economics.cloudPricingId !== undefined) {
+      const { cloudPricingId: _unmatchedPricingId, ...economics } =
+        resolvedConfig.economics;
+      resolvedConfig = { ...resolvedConfig, economics };
+    }
+  }
   const cloudCost = pricing
     ? calculateCloudCost(tokenDemand, pricing, config.economics.cachedInputRatio)
     : null;
@@ -457,9 +560,11 @@ export function calculateAnalysis(
         ]
       : []),
     ...Object.values(systemResolution.errors),
+    ...hardwareRecommendationWarnings,
     ...(vram?.trace.warnings ?? []),
     ...(hardwareFit?.warnings ?? []),
     ...(performance?.warnings ?? []),
+    ...pricingResolution.warnings,
     ...(cloudCost?.warnings ?? []),
     ...(hybridCost?.warnings ?? []),
     ...recommendation.warnings,

@@ -3,6 +3,7 @@ import {
   BrainCircuit,
   Check,
   Database,
+  ExternalLink,
   LoaderCircle,
   LockKeyhole,
   Pencil,
@@ -15,6 +16,7 @@ import {
 import type {
   AnalysisResult,
   CapabilityTierDefinition,
+  CatalogSource,
   CloudPricingRecord,
   ModelBenchmarkRecord,
   ModelRecord,
@@ -40,6 +42,11 @@ import {
   reasonLabel,
   sentenceCase,
 } from "../advisor-ui/presentation";
+import { isSameBenchmarkCohort } from "./intelligenceMethodology";
+import {
+  modelSelectorOptionLabel,
+  sortModelsForSelector,
+} from "./modelSelectorOptions";
 
 export type LocalModelEditorStatus =
   "idle" | "editing" | "saving" | "saved" | "deleting" | "error";
@@ -57,6 +64,7 @@ export interface ModelSectionProps {
   benchmarks: ModelBenchmarkRecord[];
   pricing: CloudPricingRecord[];
   modelLastUpdated?: string;
+  modelCatalogSource?: CatalogSource;
   currency: CurrencyCode;
   exchangeRates: ExchangeRateCatalog;
   onSelectModel: (modelId: string) => void;
@@ -104,12 +112,7 @@ function selectBenchmarkCohort(
   if (!cohortAnchor) return [];
 
   return benchmarks.filter(
-    (benchmark) =>
-      benchmark.sourceId === cohortAnchor.sourceId &&
-      benchmark.methodologyVersion === cohortAnchor.methodologyVersion &&
-      benchmark.intelligenceScale?.min ===
-        cohortAnchor.intelligenceScale?.min &&
-      benchmark.intelligenceScale?.max === cohortAnchor.intelligenceScale?.max,
+    (benchmark) => isSameBenchmarkCohort(benchmark, cohortAnchor),
   );
 }
 
@@ -126,6 +129,8 @@ function buildComparisonModels(
     benchmarkSourceId: string | null;
     benchmarkMeasuredAt: string | null;
     benchmarkMethodology: string | null;
+    benchmarkScaleMin: number | null;
+    benchmarkScaleMax: number | null;
   }
 > {
   const selectedId = analysis.selectedModel?.id;
@@ -166,6 +171,8 @@ function buildComparisonModels(
         benchmarkSourceId: benchmark?.sourceId ?? null,
         benchmarkMeasuredAt: benchmark?.measuredAt ?? null,
         benchmarkMethodology: benchmark?.methodologyVersion ?? null,
+        benchmarkScaleMin: benchmark?.intelligenceScale?.min ?? null,
+        benchmarkScaleMax: benchmark?.intelligenceScale?.max ?? null,
       };
     });
 }
@@ -541,6 +548,7 @@ function LocalModelEditor({
                   ["text", t("model.local.modality.text")],
                   ["image", t("model.local.modality.image")],
                   ["audio", t("model.local.modality.audio")],
+                  ["video", t("model.local.modality.video")],
                 ] as const
               ).map(([modality, label]) => (
                 <label
@@ -866,6 +874,7 @@ export function ModelSection({
   benchmarks,
   pricing,
   modelLastUpdated,
+  modelCatalogSource,
   currency,
   exchangeRates,
   onSelectModel,
@@ -902,10 +911,12 @@ export function ModelSection({
     analysis,
   );
   const localModelIdSet = new Set(localModelIds);
-  const dataPackModels = models.filter(
-    (model) => !localModelIdSet.has(model.id),
+  const dataPackModels = sortModelsForSelector(
+    models.filter((model) => !localModelIdSet.has(model.id)),
   );
-  const browserModels = models.filter((model) => localModelIdSet.has(model.id));
+  const browserModels = sortModelsForSelector(
+    models.filter((model) => localModelIdSet.has(model.id)),
+  );
   const selectedIsLocal = selected ? localModelIdSet.has(selected.id) : false;
   const localLibraryEnabled = Boolean(
     localModelIds.length ||
@@ -987,7 +998,10 @@ export function ModelSection({
                 <optgroup label={t("model.local.dataPackGroup")}>
                   {dataPackModels.map((model) => (
                     <option key={model.id} value={model.id}>
-                      {model.provider} · {model.name}
+                      {modelSelectorOptionLabel(
+                        model,
+                        `${formatNumber(model.totalParametersB, 2, locale)}B`,
+                      )}
                     </option>
                   ))}
                 </optgroup>
@@ -996,7 +1010,10 @@ export function ModelSection({
                     {browserModels.length ? (
                       browserModels.map((model) => (
                         <option key={model.id} value={model.id}>
-                          {model.provider} · {model.name}
+                          {modelSelectorOptionLabel(
+                            model,
+                            `${formatNumber(model.totalParametersB, 2, locale)}B`,
+                          )}
                         </option>
                       ))
                     ) : (
@@ -1219,6 +1236,59 @@ export function ModelSection({
               className="bg-white p-4"
             />
           </div>
+          {selected ? (
+            <div className="border-t border-amber-200 bg-amber-50/70 px-5 py-4">
+              <h4 className="text-sm font-bold text-amber-950">
+                {t("model.catalogEvidenceTitle")}
+              </h4>
+              <p className="mt-1 text-xs leading-5 text-amber-900">
+                {t("model.catalogPlanningCaveat")}
+              </p>
+              <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+                <div>
+                  <dt className="font-bold text-slate-600">
+                    {t("model.local.modalities")}
+                  </dt>
+                  <dd className="mt-1 flex flex-wrap gap-1.5">
+                    {selected.modalities.map((modality) => (
+                      <StatusBadge key={modality}>
+                        {t(`model.local.modality.${modality}`)}
+                      </StatusBadge>
+                    ))}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-bold text-slate-600">
+                    {t("model.local.commercialUse")}
+                  </dt>
+                  <dd className="mt-1 font-semibold text-slate-800">
+                    {t(`model.local.${selected.commercialUse}`)}
+                  </dd>
+                </div>
+              </dl>
+              {selected.notes ? (
+                <div className="mt-3 border-t border-amber-200 pt-3">
+                  <p className="text-xs font-bold text-slate-700">
+                    {t("model.local.notes")}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-700">
+                    {selected.notes}
+                  </p>
+                </div>
+              ) : null}
+              {modelCatalogSource?.url ? (
+                <a
+                  href={modelCatalogSource.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-blue-800 underline decoration-blue-300 underline-offset-2"
+                >
+                  {t("model.catalogSource")}: {modelCatalogSource.label}
+                  <ExternalLink className="size-3" aria-hidden="true" />
+                </a>
+              ) : null}
+            </div>
+          ) : null}
           {selected?.modelType === "moe" ? (
             <div className="flex gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-600">
               <LockKeyhole

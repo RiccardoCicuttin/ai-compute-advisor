@@ -1,5 +1,7 @@
 import type {
+  CompleteDesktopSystemEconomics,
   CustomDesktopSystemConfig,
+  DesktopSystemEconomicsEvidence,
   DesktopSystemRecord,
   NormalizedDesktopHardware,
 } from "./types";
@@ -21,6 +23,16 @@ function isCatalogRecord(
   input: DesktopSystemRecord | CustomDesktopSystemConfig,
 ): input is DesktopSystemRecord {
   return "dataQuality" in input && "lastUpdated" in input && "id" in input;
+}
+
+function hasCompleteEconomics(
+  system: DesktopSystemEconomicsEvidence,
+): system is CompleteDesktopSystemEconomics {
+  return (
+    system.systemIdleWatts !== null &&
+    system.systemLoadWatts !== null &&
+    system.purchasePriceUSD !== null
+  );
 }
 
 /**
@@ -47,10 +59,18 @@ export function normalizeDesktopSystem(
     !system.supportsModelSharding
       ? system.dedicatedMemoryGBPerDevice
       : totalInstalledAcceleratorMemoryGB;
-  const gpuIdlePowerRatio =
-    system.systemLoadWatts > 0
-      ? Math.min(1, system.systemIdleWatts / system.systemLoadWatts)
-      : 0;
+  const economicsEvidenceAvailable = hasCompleteEconomics(system);
+  const engineEconomicsOverrides = economicsEvidenceAvailable
+    ? {
+        hostPurchasePriceUSD: 0 as const,
+        hostIdlePowerWatts: 0 as const,
+        hostLoadPowerWatts: 0 as const,
+        gpuIdlePowerRatio: Math.min(
+          1,
+          system.systemIdleWatts / system.systemLoadWatts,
+        ),
+      }
+    : null;
 
   return {
     id,
@@ -70,6 +90,7 @@ export function normalizeDesktopSystem(
     wholeSystemPurchasePriceUSD: system.purchasePriceUSD,
     wholeSystemIdleWatts: system.systemIdleWatts,
     wholeSystemLoadWatts: system.systemLoadWatts,
+    economicsEvidenceAvailable,
     peakTops: system.peakTops ?? null,
     runtimeSupport: system.runtimeSupport,
     performanceOverride: system.performance ?? null,
@@ -85,14 +106,11 @@ export function normalizeDesktopSystem(
       supportedCounts: [1],
       supportsTensorParallel: system.supportsModelSharding,
       notes:
-        "Complete-system adapter record. Use engineGpuCount=1 and apply engineEconomicsOverrides.",
+        economicsEvidenceAvailable
+          ? "Complete-system adapter record. Use engineGpuCount=1 and apply engineEconomicsOverrides."
+          : "Complete-system capability record. Whole-system price and/or measured idle/load power is unavailable, so economics must not be calculated.",
     },
     engineGpuCount: 1,
-    engineEconomicsOverrides: {
-      hostPurchasePriceUSD: 0,
-      hostIdlePowerWatts: 0,
-      hostLoadPowerWatts: 0,
-      gpuIdlePowerRatio,
-    },
+    engineEconomicsOverrides,
   };
 }

@@ -1,5 +1,6 @@
 import type {
   AssumptionsRecord,
+  ComputeHardwareRecord,
   GpuCount,
   GpuRecord,
   HardwareFitResult,
@@ -9,7 +10,7 @@ import { trace, value } from "./trace";
 import { resolveMultiGpuEfficiency } from "./multiGpuEfficiency";
 
 export interface HardwareFitInput {
-  gpu: GpuRecord;
+  gpu: ComputeHardwareRecord;
   gpuCount: GpuCount;
   vram: VramResult;
   assumptions: Pick<AssumptionsRecord, "vram" | "multiGpuEfficiency">;
@@ -23,7 +24,10 @@ export interface RankedHardwareOption {
 }
 
 export function calculateHardwareFit(input: HardwareFitInput): HardwareFitResult {
-  const availableVramGB = input.gpu.vramGB * input.gpuCount;
+  const canPoolModelMemory =
+    input.gpuCount === 1 || input.gpu.supportsTensorParallel;
+  const modelMemoryDeviceCount = canPoolModelMemory ? input.gpuCount : 1;
+  const availableVramGB = input.gpu.vramGB * modelMemoryDeviceCount;
   const capacityRatio = availableVramGB / input.vram.recommendedVramGB;
   const headroomGB = availableVramGB - input.vram.recommendedVramGB;
   const thresholds = input.assumptions.vram.fitThresholds;
@@ -45,18 +49,28 @@ export function calculateHardwareFit(input: HardwareFitInput): HardwareFitResult
     warnings.push(`${input.gpu.name} does not list ${input.gpuCount} GPUs as a supported configuration.`);
   }
   if (input.gpuCount > 1) {
-    warnings.push("Multi-GPU memory can scale, but inference performance does not scale linearly.");
-    if (!input.gpu.supportsTensorParallel) {
-      status = "cannot-run";
-      warnings.push("This GPU record does not support tensor-parallel execution.");
+    if (input.gpu.supportsTensorParallel) {
+      warnings.push("Multi-GPU memory can scale, but inference performance does not scale linearly.");
+    } else {
+      warnings.push(
+        "PHYSICAL_MULTI_GPU_WITHOUT_POOLING_EVIDENCE: this catalog count confirms a physical multi-card option, not validated tensor-parallel or model-sharding support; available memory for one model remains limited to one card.",
+      );
     }
   }
 
-  const efficiency = resolveMultiGpuEfficiency(
-    input.assumptions,
-    input.gpu.interconnect,
-    input.gpuCount,
-  );
+  const efficiency = canPoolModelMemory
+    ? resolveMultiGpuEfficiency(
+        input.assumptions,
+        input.gpu.interconnect,
+        input.gpuCount,
+      )
+    : {
+        gpuCount: input.gpuCount,
+        efficiency: 1 / input.gpuCount,
+        aggregateScale: 1,
+        method: "conservative-fallback" as const,
+        warning: null,
+      };
   if (efficiency.warning) warnings.push(efficiency.warning);
   const multiGpuPerformanceScale = efficiency.aggregateScale;
 
@@ -73,10 +87,13 @@ export function calculateHardwareFit(input: HardwareFitInput): HardwareFitResult
     trace: trace({
       id: "hardware-fit",
       title: "Local hardware fit",
-      formula: "Available VRAM = GPU VRAM × GPU count; compare with hard and recommended VRAM",
+      formula: input.gpu.supportsTensorParallel
+        ? "Available model VRAM = GPU VRAM × validated pooling count; compare with hard and recommended VRAM"
+        : "Available model VRAM = VRAM on one GPU; physical card count is not pooled without tensor-parallel evidence",
       inputs: [
         value("gpuVram", "VRAM per GPU", input.gpu.vramGB, "GB", "gpu-data"),
-        value("gpuCount", "GPU count", input.gpuCount, "ratio", "user"),
+        value("gpuCount", "Physical GPU count", input.gpuCount, "ratio", "user"),
+        value("modelMemoryDeviceCount", "GPU count available to one model", modelMemoryDeviceCount, "ratio", "gpu-data"),
         value("required", "Recommended VRAM", input.vram.recommendedVramGB, "GB", "derived"),
       ],
       intermediateValues: [

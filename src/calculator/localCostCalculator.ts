@@ -1,14 +1,14 @@
 import type {
   AssumptionsRecord,
+  EconomicsReadyComputeHardwareRecord,
   GpuCount,
-  GpuRecord,
   LocalCostResult,
   WorkloadConfig,
 } from "../types";
 import { assertRatio, safeCostPerMillion, trace, value } from "./trace";
 
 export interface LocalCostInput {
-  gpu: GpuRecord;
+  gpu: EconomicsReadyComputeHardwareRecord;
   gpuCount: GpuCount;
   workload: WorkloadConfig;
   locallyServedTokens: number;

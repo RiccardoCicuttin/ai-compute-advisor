@@ -18,6 +18,7 @@ import {
   SegmentedControl,
   StatusBadge,
 } from "../../components/ui/AdvisorUI";
+import { summarizeUsageFrequency } from "./usageFrequencySummary";
 
 type WorkloadPatch = Partial<WorkloadConfig>;
 
@@ -153,8 +154,24 @@ export function WorkloadSection({
     assumptions.simpleModeMappings.usageFrequency,
   ).map(([value, definition]) => ({
     value,
-    label: localized(definition.labels),
+    label: t("workload.frequencyOption", {
+      label: localized(definition.labels),
+      requests: new Intl.NumberFormat(locale, {
+        maximumFractionDigits: 2,
+      }).format(definition.requestsPerUserPerWorkingDay),
+      monthlyRequests: new Intl.NumberFormat(locale, {
+        maximumFractionDigits: 2,
+      }).format(
+        definition.requestsPerUserPerWorkingDay *
+          definition.workingDaysPerMonth,
+      ),
+    }),
   }));
+  const frequencyDefinition =
+    assumptions.simpleModeMappings.usageFrequency[workload.usageFrequency];
+  const frequencySummary = frequencyDefinition
+    ? summarizeUsageFrequency(frequencyDefinition)
+    : null;
   const capabilityTiers = [...assumptions.capabilityTiers]
     .sort((left, right) => left.rank - right.rank)
     .map((tier) => ({ value: tier.id, label: localized(tier.labels) }));
@@ -192,6 +209,8 @@ export function WorkloadSection({
     Math.max(1, workload.users * workload.workingDaysPerMonth);
   const formatContextValue = (value: number) =>
     new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+  const formatFrequencyValue = (value: number) =>
+    new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
 
   const qualitativeFields = (
     <>
@@ -441,6 +460,81 @@ export function WorkloadSection({
             ) : null}
             {qualitativeFields}
           </div>
+
+          {workload.mode === "simple" && frequencyDefinition && frequencySummary ? (
+            <article className="mt-4 rounded-xl border border-blue-200 bg-blue-50/70 p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-extrabold tracking-[0.08em] text-blue-700 uppercase">
+                    {t("workload.frequencyDefinitionTitle")}
+                  </p>
+                  <h3 className="mt-1 text-sm font-bold text-slate-900">
+                    {localized(frequencyDefinition.labels)}
+                  </h3>
+                </div>
+                <StatusBadge tone="blue">
+                  {t("workload.templateStartingPoint")}
+                </StatusBadge>
+              </div>
+
+              <dl className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    label: t("workload.frequencyRequestsPerWorkingDay"),
+                    value: t("workload.frequencyRequestsValue", {
+                      value: formatFrequencyValue(
+                        frequencySummary.requestsPerUserPerWorkingDay,
+                      ),
+                    }),
+                  },
+                  {
+                    label: t("workload.frequencyWorkingHours"),
+                    value: t("workload.frequencyHoursValue", {
+                      value: formatFrequencyValue(
+                        frequencySummary.workingHoursPerDay,
+                      ),
+                    }),
+                  },
+                  {
+                    label: t("workload.frequencyWorkingDays"),
+                    value: t("workload.frequencyDaysValue", {
+                      value: formatFrequencyValue(
+                        frequencySummary.workingDaysPerMonth,
+                      ),
+                    }),
+                  },
+                  {
+                    label: t("workload.frequencyMonthlyRequestsPerUser"),
+                    value: t("workload.frequencyRequestsValue", {
+                      value: formatFrequencyValue(
+                        frequencySummary.monthlyRequestsPerUser,
+                      ),
+                    }),
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-lg border border-blue-100 bg-white/80 px-3 py-2.5"
+                  >
+                    <dt className="text-[11px] leading-4 font-semibold text-slate-500">
+                      {item.label}
+                    </dt>
+                    <dd className="mt-1 text-sm font-extrabold tabular-nums text-slate-900">
+                      {item.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div className="mt-3 flex gap-2 text-xs leading-5 text-blue-950">
+                <Info
+                  className="mt-0.5 size-3.5 shrink-0 text-blue-700"
+                  aria-hidden="true"
+                />
+                <p>{t("workload.frequencyDefinitionCaveat")}</p>
+              </div>
+            </article>
+          ) : null}
 
           <div className="mt-4 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950">
             <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

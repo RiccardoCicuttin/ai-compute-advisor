@@ -16,6 +16,7 @@ import {
   PresetRecordSchema,
   parseCatalogBundle,
 } from "./catalogSchemas";
+import { validateCatalogRelationships } from "../validators";
 
 const rawBundle = {
   manifest,
@@ -33,7 +34,7 @@ const rawBundle = {
 describe("catalog schemas", () => {
   it("validates and normalizes every bundled catalog", () => {
     const parsed = parseCatalogBundle(rawBundle);
-    expect(parsed.dataVersion).toBe("2026.08-sample.3");
+    expect(parsed.dataVersion).toBe("2026.08-sample.5");
     expect(parsed.models.length).toBeGreaterThanOrEqual(5);
     expect(parsed.gpus.length).toBeGreaterThanOrEqual(4);
     expect(parsed.systems.length).toBeGreaterThanOrEqual(4);
@@ -54,6 +55,19 @@ describe("catalog schemas", () => {
     expect(() => parseCatalogBundle(broken)).toThrow(CatalogIntegrityError);
   });
 
+  it("rejects broken complete-system performance bindings", () => {
+    const missingModel = structuredClone(rawBundle);
+    missingModel.systems.data[0]!.performance!.modelId = "missing-model";
+    expect(() => parseCatalogBundle(missingModel)).toThrow(CatalogIntegrityError);
+
+    const missingQuantization = structuredClone(rawBundle);
+    missingQuantization.systems.data[0]!.performance!.quantizationId =
+      "missing-quantization";
+    expect(() => parseCatalogBundle(missingQuantization)).toThrow(
+      CatalogIntegrityError,
+    );
+  });
+
   it("uses total and active parameters independently for MoE records", () => {
     const parsed = parseCatalogBundle(rawBundle);
     const model = parsed.models.find((candidate) => candidate.modelType === "moe");
@@ -70,6 +84,51 @@ describe("catalog schemas", () => {
     expect(() =>
       GpuRecordSchema.parse({ ...gpus.data[0], supportedCounts: [0] }),
     ).toThrow();
+  });
+
+  it("keeps GPU AI TOPS and evidence optional but validates them when present", () => {
+    const legacy = GpuRecordSchema.parse(gpus.data[0]);
+    expect(legacy.peakAiTops).toBeUndefined();
+    expect(legacy.evidence).toBeUndefined();
+
+    const evidenced = GpuRecordSchema.parse(
+      gpus.data.find((gpu) => gpu.id === "rtx-5090-32gb"),
+    );
+    expect(evidenced.peakAiTops).toMatchObject({
+      value: 3352,
+      precision: expect.stringContaining("FP4"),
+    });
+    expect(evidenced.evidence?.[0]?.url).toMatch(/^https:\/\/www\.nvidia\.com/);
+
+    expect(() =>
+      GpuRecordSchema.parse({
+        ...evidenced,
+        evidence: [{ ...evidenced.evidence![0], observedAt: "not-a-date" }],
+      }),
+    ).toThrow();
+    expect(() =>
+      GpuRecordSchema.parse({ ...evidenced, evidence: undefined }),
+    ).toThrow(/Peak AI TOPS requires/);
+    expect(() =>
+      GpuRecordSchema.parse({
+        ...evidenced,
+        evidence: [{ ...evidenced.evidence![0], url: "javascript:alert(1)" }],
+      }),
+    ).toThrow(/HTTP or HTTPS/);
+  });
+
+  it("accepts a physical multi-GPU option without treating it as pooled memory", () => {
+    const parsed = parseCatalogBundle(rawBundle);
+    const issues = validateCatalogRelationships(parsed).filter(
+      (issue) => issue.code === "PHYSICAL_MULTI_GPU_WITHOUT_POOLING_EVIDENCE",
+    );
+
+    expect(issues.map((issue) => issue.path)).toEqual([
+      "rtx-pro-5000-blackwell-48gb.supportedCounts",
+      "rtx-pro-5000-blackwell-72gb.supportedCounts",
+      "rtx-5060-ti-16gb.supportedCounts",
+    ]);
+    expect(issues.every((issue) => issue.severity === "warning")).toBe(true);
   });
 
   it("migrates legacy model and preset fields to canonical capability/localized fields", () => {

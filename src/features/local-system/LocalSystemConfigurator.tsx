@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { formatMemory } from "../../utils";
-import { useI18n, type Translate } from "../../i18n";
+import { useI18n, type Locale, type Translate } from "../../i18n";
 import {
   controlClassName,
   Button,
@@ -46,12 +46,12 @@ export interface LocalSystemSpecification {
   dedicatedMemoryPerUnitGB?: number;
   allocatableUnifiedMemoryGB?: number;
   memoryBandwidthGBps: number;
-  idlePowerWatts: number;
-  loadPowerWatts: number;
-  purchasePriceUSD: number;
+  idlePowerWatts: number | null;
+  loadPowerWatts: number | null;
+  purchasePriceUSD: number | null;
   tops?: number;
   topsPrecision?: string;
-  effectiveTokensPerSecond?: number;
+  effectiveTokensPerSecond?: number | null;
   runtimeSupportStatus?: "supported" | "partial" | "experimental" | "unknown";
 }
 
@@ -125,6 +125,16 @@ function formatMemoryValue(value: number | null | undefined, t: Translate) {
   return value === null || value === undefined || !Number.isFinite(value)
     ? t("common.notAvailable")
     : formatMemory(value);
+}
+
+function formatPowerValue(
+  value: number | null | undefined,
+  locale: Locale,
+  t: Translate,
+) {
+  return value === null || value === undefined || !Number.isFinite(value)
+    ? t("common.notAvailable")
+    : `${formatNumber(value, 0, locale)} W`;
 }
 
 function TextInput({
@@ -218,6 +228,8 @@ function CatalogSystemSummary({
   const memoryLabel = system.memoryArchitecture === "unified"
     ? t("localSystem.allocatableUnifiedMemory")
     : t("localSystem.dedicatedMemoryUnit");
+  const idlePower = formatPowerValue(system.idlePowerWatts, locale, t);
+  const loadPower = formatPowerValue(system.loadPowerWatts, locale, t);
 
   return (
     <div className="grid gap-px bg-slate-200 sm:grid-cols-2 xl:grid-cols-4">
@@ -228,7 +240,7 @@ function CatalogSystemSummary({
         <Metric label={memoryLabel} value={formatMemoryValue(memoryValue, t)} note={`${formatNumber(system.acceleratorCount, 0, locale)} × ${system.acceleratorName}`} />
       </div>
       <div className="bg-white p-4">
-        <Metric label={t("localSystem.memoryBandwidth")} value={`${formatNumber(system.memoryBandwidthGBps, 0, locale)} GB/s`} note={t("localSystem.idleLoad", { idle: formatNumber(system.idlePowerWatts, 0, locale), load: formatNumber(system.loadPowerWatts, 0, locale) })} />
+        <Metric label={t("localSystem.memoryBandwidth")} value={`${formatNumber(system.memoryBandwidthGBps, 0, locale)} GB/s`} note={t("localSystem.idleLoad", { idle: idlePower, load: loadPower })} />
       </div>
       <div className="bg-white p-4">
         <Metric label={t("localSystem.purchasePrice")} value={formatUsd(system.purchasePriceUSD)} note={system.lastUpdated ? t("localSystem.updated", { date: system.lastUpdated }) : undefined} />
@@ -284,6 +296,15 @@ export function LocalSystemConfigurator({
           currency: "USD",
           maximumFractionDigits: 2,
         }).format(amountUSD));
+  const selectedSystemEconomicsUnavailable = selectedSystem
+    ? selectedSystem.idlePowerWatts == null ||
+      selectedSystem.loadPowerWatts == null ||
+      selectedSystem.purchasePriceUSD == null
+    : false;
+  const selectedSystemPerformanceUnavailable = selectedSystem
+    ? selectedSystem.effectiveTokensPerSecond === undefined ||
+      selectedSystem.effectiveTokensPerSecond === null
+    : false;
 
   useEffect(() => {
     setPendingDeleteSystemId(null);
@@ -448,11 +469,29 @@ export function LocalSystemConfigurator({
                 ) : null}
               </div>
               <CatalogSystemSummary system={selectedSystem} formatUsd={displayUsd} />
-              {(selectedSystem.tops !== undefined || selectedSystem.effectiveTokensPerSecond !== undefined || selectedSystem.notes) ? (
-                <div className="grid gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:grid-cols-3 sm:px-5">
+              {(selectedSystem.tops !== undefined || selectedSystem.effectiveTokensPerSecond != null) ? (
+                <div className="grid gap-3 border-t border-slate-200 bg-slate-50 px-4 py-4 sm:grid-cols-2 sm:px-5">
                   <Metric label={t("localSystem.tops")} value={selectedSystem.tops === undefined ? t("common.notAvailable") : formatNumber(selectedSystem.tops, 1, locale)} />
-                  <Metric label={t("localSystem.effectiveLlmTps")} value={selectedSystem.effectiveTokensPerSecond === undefined ? t("common.notAvailable") : `${formatNumber(selectedSystem.effectiveTokensPerSecond, 1, locale)} tok/s`} />
-                  <Metric label={t("localSystem.notes")} value={selectedSystem.notes ?? t("common.notAvailable")} />
+                  <Metric label={t("localSystem.effectiveLlmTps")} value={selectedSystem.effectiveTokensPerSecond == null ? t("common.notAvailable") : `${formatNumber(selectedSystem.effectiveTokensPerSecond, 1, locale)} tok/s`} />
+                </div>
+              ) : null}
+              {(selectedSystem.notes || selectedSystemEconomicsUnavailable || selectedSystemPerformanceUnavailable) ? (
+                <div className="grid gap-3 border-t border-slate-200 bg-white px-4 py-4 sm:px-5">
+                  {selectedSystem.notes ? (
+                    <InlineNotice tone="amber" title={t("localSystem.catalogCaveatsTitle")}>
+                      {selectedSystem.notes}
+                    </InlineNotice>
+                  ) : null}
+                  {selectedSystemEconomicsUnavailable ? (
+                    <InlineNotice tone="amber" title={t("localSystem.economicsUnavailableTitle")}>
+                      {t("localSystem.economicsUnavailableDescription")}
+                    </InlineNotice>
+                  ) : null}
+                  {selectedSystemPerformanceUnavailable ? (
+                    <InlineNotice tone="blue" title={t("localSystem.performanceEvidenceMissingTitle")}>
+                      {t("localSystem.performanceEvidenceMissingDescription")}
+                    </InlineNotice>
+                  ) : null}
                 </div>
               ) : null}
             </>

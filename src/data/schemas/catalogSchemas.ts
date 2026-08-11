@@ -302,7 +302,7 @@ const ModelRecordBaseSchema = z.strictObject({
     quantizations: z.array(QuantizationProfileSchema).min(1),
     capabilityTierId: CapabilityTierIdSchema,
     reasoning: z.boolean(),
-    modalities: z.array(z.enum(["text", "image", "audio"])).min(1),
+    modalities: z.array(z.enum(["text", "image", "audio", "video"])).min(1),
     openWeight: z.boolean(),
     commercialUse: z.enum(["allowed", "restricted", "unknown"]),
     kvCacheBytesPerToken: positive.optional(),
@@ -383,19 +383,52 @@ export const ModelBenchmarkRecordSchema = z
     }
   });
 
-export const GpuRecordSchema = z.strictObject({
-  id,
-  name: z.string().min(1),
-  vendor: z.string().min(1),
-  vramGB: positive,
-  memoryBandwidthGBps: positive,
-  tdpWatts: positive,
-  streetPriceUSD: nonNegative,
-  interconnect: z.enum(["pcie", "nvlink", "unified", "other"]),
-  supportedCounts: z.array(GpuCountSchema).min(1),
-  supportsTensorParallel: z.boolean(),
-  notes: z.string().optional(),
+const PeakAiTopsSpecificationSchema = z.strictObject({
+  value: positive,
+  precision: z.string().min(1),
 });
+
+const GpuEvidenceRecordSchema = z.strictObject({
+  kind: z.enum(["specification", "price", "system-qualification"]),
+  label: z.string().min(1),
+  url: z
+    .url()
+    .refine((value) => /^https?:\/\//i.test(value), "Evidence URL must use HTTP or HTTPS")
+    .optional(),
+  observedAt: isoDate,
+  notes: z.string().min(1).optional(),
+});
+
+export const GpuRecordSchema = z
+  .strictObject({
+    id,
+    name: z.string().min(1),
+    vendor: z.string().min(1),
+    vramGB: positive,
+    memoryBandwidthGBps: positive,
+    tdpWatts: positive,
+    streetPriceUSD: nonNegative,
+    interconnect: z.enum(["pcie", "nvlink", "unified", "other"]),
+    supportedCounts: z.array(GpuCountSchema).min(1),
+    supportsTensorParallel: z.boolean(),
+    peakAiTops: PeakAiTopsSpecificationSchema.optional(),
+    evidence: z.array(GpuEvidenceRecordSchema).min(1).optional(),
+    notes: z.string().optional(),
+  })
+  .superRefine((gpu, ctx) => {
+    if (
+      gpu.peakAiTops &&
+      !gpu.evidence?.some(
+        (item) => item.kind === "specification" && item.url !== undefined,
+      )
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["evidence"],
+        message: "Peak AI TOPS requires a dated specification evidence URL",
+      });
+    }
+  });
 
 export const InferenceProfileRecordSchema = z.strictObject({
   id,
@@ -798,6 +831,27 @@ export function parseCatalogBundle(raw: RawCatalogBundle): NormalizedCatalogs {
   for (const pricing of cloudPricing.data) {
     if (pricing.modelId && !modelById.has(pricing.modelId)) {
       issues.push(`cloudPricing: '${pricing.id}' references unknown model '${pricing.modelId}'`);
+    }
+  }
+  for (const system of systems.data) {
+    if (!system.performance) continue;
+    const model = modelById.get(system.performance.modelId);
+    if (!model) {
+      issues.push(
+        `systems: '${system.id}' performance references unknown model '${system.performance.modelId}'`,
+      );
+      continue;
+    }
+    if (
+      system.performance.quantizationId &&
+      !model.quantizations.some(
+        (quantization) =>
+          quantization.id === system.performance?.quantizationId,
+      )
+    ) {
+      issues.push(
+        `systems: '${system.id}' performance references unknown quantization '${system.performance.quantizationId}'`,
+      );
     }
   }
   if (issues.length > 0) throw new CatalogIntegrityError(issues);

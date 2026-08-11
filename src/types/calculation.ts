@@ -1,6 +1,6 @@
 import type {
   CloudPricingRecord,
-  GpuRecord,
+  ComputeHardwareRecord,
   CapabilityTierId,
   MetricMethod,
   ModelRecord,
@@ -189,7 +189,7 @@ export interface AnalysisResult {
   modelRequirement: ModelRequirementResult;
   selectedModel: ModelRecord | null;
   selectedQuantization: QuantizationProfile | null;
-  selectedGpu: GpuRecord | null;
+  selectedGpu: ComputeHardwareRecord | null;
   selectedSystem: NormalizedDesktopHardware | null;
   systemValidationErrors: Partial<Record<string, string>>;
   vram: VramResult | null;

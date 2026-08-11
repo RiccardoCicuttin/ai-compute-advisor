@@ -91,7 +91,7 @@ export interface ModelRecord {
   quantizations: QuantizationProfile[];
   capabilityTierId: CapabilityTierId;
   reasoning: boolean;
-  modalities: Array<"text" | "image" | "audio">;
+  modalities: Array<"text" | "image" | "audio" | "video">;
   openWeight: boolean;
   commercialUse: "allowed" | "restricted" | "unknown";
   kvCacheBytesPerToken?: number;
@@ -119,19 +119,58 @@ export interface ModelBenchmarkRecord {
   method: MetricMethod;
 }
 
-export interface GpuRecord {
+export interface PeakAiTopsSpecification {
+  value: number;
+  /** Vendor-declared arithmetic basis, for example FP4 with sparsity. */
+  precision: string;
+}
+
+export interface GpuEvidenceRecord {
+  kind: "specification" | "price" | "system-qualification";
+  label: string;
+  url?: string;
+  observedAt: string;
+  notes?: string;
+}
+
+/**
+ * Hardware capability shape used by the calculation core.
+ *
+ * A catalog GPU always supplies price and TDP (see `GpuRecord` below), while
+ * a complete-system adapter may intentionally leave those economic inputs
+ * unavailable. Capability calculations must not depend on the nullable
+ * fields.
+ */
+export interface ComputeHardwareRecord {
   id: string;
   name: string;
   vendor: string;
   vramGB: number;
   memoryBandwidthGBps: number;
-  tdpWatts: number;
-  streetPriceUSD: number;
+  tdpWatts: number | null;
+  streetPriceUSD: number | null;
   interconnect: Interconnect;
+  /** Physically offered card counts; this does not imply pooled model memory. */
   supportedCounts: GpuCount[];
+  /** True only when the catalog has evidence for one model spanning cards. */
   supportsTensorParallel: boolean;
+  /** Peak arithmetic metadata only. Never convert this value into LLM TPS. */
+  peakAiTops?: PeakAiTopsSpecification;
+  evidence?: GpuEvidenceRecord[];
   notes?: string;
 }
+
+/** GPU-catalog records retain complete economic inputs. */
+export interface GpuRecord extends ComputeHardwareRecord {
+  tdpWatts: number;
+  streetPriceUSD: number;
+}
+
+/** Narrowed calculator input after an explicit evidence-availability check. */
+export type EconomicsReadyComputeHardwareRecord = ComputeHardwareRecord & {
+  tdpWatts: number;
+  streetPriceUSD: number;
+};
 
 export interface InferenceProfileRecord {
   id: string;

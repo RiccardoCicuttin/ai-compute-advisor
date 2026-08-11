@@ -17,6 +17,8 @@ import {
 import type { ArtificialAnalysisComparisonRecord } from "../../data/schemas/artificialAnalysisComparisonSchemas";
 import { useI18n, type TranslationKey } from "../../i18n";
 import { Button, Panel } from "../../components/ui/AdvisorUI";
+import { IntelligenceMethodologyNotice } from "./IntelligenceMethodologyNotice";
+import { isSameArtificialAnalysisSnapshotCohort } from "./intelligenceMethodology";
 
 const MAX_SELECTED_RECORDS = 6;
 const DEFAULT_SELECTED_RECORDS = 5;
@@ -43,9 +45,15 @@ function compareForDefaultSelection(
 }
 
 function getDefaultSelection(records: ArtificialAnalysisComparisonRecord[]) {
+  const sorted = [...records].sort(compareForDefaultSelection);
+  const anchor = sorted[0];
+  if (!anchor) return new Set<string>();
+
   return new Set(
-    [...records]
-      .sort(compareForDefaultSelection)
+    sorted
+      .filter((record) =>
+        isSameArtificialAnalysisSnapshotCohort(record, anchor),
+      )
       .slice(0, DEFAULT_SELECTED_RECORDS)
       .map((record) => record.id),
   );
@@ -91,8 +99,18 @@ export function ArtificialAnalysisComparisonPanel({
   useEffect(() => {
     const availableIds = new Set(records.map((record) => record.id));
     setSelectedIds((current) => {
+      const retainedRecords = records.filter(
+        (record) => current.has(record.id) && availableIds.has(record.id),
+      );
+      const anchor = retainedRecords[0];
       const retained = new Set(
-        [...current].filter((recordId) => availableIds.has(recordId)),
+        retainedRecords
+          .filter(
+            (record) =>
+              anchor &&
+              isSameArtificialAnalysisSnapshotCohort(record, anchor),
+          )
+          .map((record) => record.id),
       );
       return retained.size > 0 ? retained : getDefaultSelection(records);
     });
@@ -116,6 +134,13 @@ export function ArtificialAnalysisComparisonPanel({
         .sort(compareForDefaultSelection),
     [records, selectedIds],
   );
+  const importedIntelligenceVersions = useMemo(
+    () =>
+      records
+        .map((record) => record.intelligenceIndexVersion)
+        .filter((version): version is number => version !== null),
+    [records],
+  );
 
   const toggleSelection = (recordId: string) => {
     setSelectedIds((current) => {
@@ -123,7 +148,15 @@ export function ArtificialAnalysisComparisonPanel({
       if (next.has(recordId)) {
         next.delete(recordId);
       } else if (next.size < MAX_SELECTED_RECORDS) {
-        next.add(recordId);
+        const candidate = records.find((record) => record.id === recordId);
+        const anchor = records.find((record) => next.has(record.id));
+        if (
+          candidate &&
+          (!anchor ||
+            isSameArtificialAnalysisSnapshotCohort(candidate, anchor))
+        ) {
+          next.add(recordId);
+        }
       }
       return next;
     });
@@ -200,6 +233,13 @@ export function ArtificialAnalysisComparisonPanel({
               </Button>
             ) : null}
           </div>
+        </div>
+
+        <div className="mt-4">
+          <IntelligenceMethodologyNotice
+            context="artificial-analysis-snapshot"
+            importedVersions={importedIntelligenceVersions}
+          />
         </div>
 
         {importStatus !== "idle" ? (
@@ -294,8 +334,17 @@ export function ArtificialAnalysisComparisonPanel({
             <div className="mt-4 grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
               {filteredRecords.map((record) => {
                 const isSelected = selectedIds.has(record.id);
+                const cohortAnchor = selectedRecords[0];
+                const isCompatibleCohort =
+                  !cohortAnchor ||
+                  isSameArtificialAnalysisSnapshotCohort(
+                    record,
+                    cohortAnchor,
+                  );
                 const selectionIsFull =
-                  !isSelected && selectedIds.size >= MAX_SELECTED_RECORDS;
+                  !isSelected &&
+                  (selectedIds.size >= MAX_SELECTED_RECORDS ||
+                    !isCompatibleCohort);
                 return (
                   <div
                     key={record.id}
@@ -313,12 +362,22 @@ export function ArtificialAnalysisComparisonPanel({
                       aria-label={t(key("aaComparison.toggleModel"), {
                         model: record.name,
                       })}
+                      title={
+                        !isCompatibleCohort
+                          ? t(key("aaComparison.incompatibleCohort"))
+                          : undefined
+                      }
                       className="mt-0.5 size-4 rounded border-slate-300 text-blue-700 focus:ring-blue-600"
                     />
                     <button
                       type="button"
                       disabled={selectionIsFull}
                       onClick={() => toggleSelection(record.id)}
+                      title={
+                        !isCompatibleCohort
+                          ? t(key("aaComparison.incompatibleCohort"))
+                          : undefined
+                      }
                       className="min-w-0 flex-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <span className="block truncate text-sm font-bold text-slate-900">
@@ -326,6 +385,16 @@ export function ArtificialAnalysisComparisonPanel({
                       </span>
                       <span className="block truncate text-xs text-slate-500">
                         {record.creator.name}
+                      </span>
+                      <span className="block truncate text-[11px] font-semibold text-slate-500">
+                        {record.intelligenceIndexVersion === null
+                          ? t(key("aaComparison.indexVersionUnavailable"))
+                          : t(key("aaComparison.indexVersion"), {
+                              version: formatMetric(
+                                record.intelligenceIndexVersion,
+                                locale,
+                              )!,
+                            })}
                       </span>
                     </button>
                     <button
@@ -489,4 +558,3 @@ export function ArtificialAnalysisComparisonPanel({
     </Panel>
   );
 }
-

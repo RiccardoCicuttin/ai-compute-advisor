@@ -76,14 +76,15 @@ export function validateCatalogRelationships(
     }
     if (!gpu.supportsTensorParallel && gpu.supportedCounts.some((count) => count > 1)) {
       issues.push({
-        severity: "error",
-        code: "UNSUPPORTED_TENSOR_PARALLEL_COUNT",
+        severity: "warning",
+        code: "PHYSICAL_MULTI_GPU_WITHOUT_POOLING_EVIDENCE",
         catalog: "gpus",
         path: `${gpu.id}.supportedCounts`,
-        message: `GPU '${gpu.id}' cannot advertise multi-GPU counts when tensor parallelism is disabled.`,
+        message: `GPU '${gpu.id}' offers a physical multi-card count without validated tensor parallelism; calculations must keep model memory unpooled.`,
       });
     }
     for (const count of gpu.supportedCounts) {
+      if (count > 1 && !gpu.supportsTensorParallel) continue;
       if (catalogs.assumptions.multiGpuEfficiency[gpu.interconnect][String(count)] === undefined) {
         issues.push({
           severity: "warning",

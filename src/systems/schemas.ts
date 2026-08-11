@@ -62,13 +62,22 @@ const commonShape = {
   systemMemoryGB: positive,
   memoryBandwidthGBps: positive,
   interconnect: InterconnectSchema,
-  systemIdleWatts: nonNegative,
-  systemLoadWatts: positive,
-  purchasePriceUSD: nonNegative,
   peakTops: PeakTopsSpecificationSchema.optional(),
   runtimeSupport: RuntimeSupportSchema,
   performance: SystemPerformanceOverrideSchema.optional(),
   notes: z.string().min(1).optional(),
+};
+
+const catalogEconomicsShape = {
+  systemIdleWatts: nonNegative.nullable(),
+  systemLoadWatts: positive.nullable(),
+  purchasePriceUSD: nonNegative.nullable(),
+};
+
+const completeEconomicsShape = {
+  systemIdleWatts: nonNegative,
+  systemLoadWatts: positive,
+  purchasePriceUSD: nonNegative,
 };
 
 const recordIdentityShape = {
@@ -103,13 +112,17 @@ function validateSystem(
     systemMemoryType: string;
     systemMemoryGB: number;
     interconnect: "pcie" | "nvlink" | "unified" | "other";
-    systemIdleWatts: number;
-    systemLoadWatts: number;
+    systemIdleWatts: number | null;
+    systemLoadWatts: number | null;
     allocatableUnifiedMemoryGB?: number;
   },
   ctx: z.RefinementCtx,
 ): void {
-  if (system.systemLoadWatts < system.systemIdleWatts) {
+  if (
+    system.systemLoadWatts !== null &&
+    system.systemIdleWatts !== null &&
+    system.systemLoadWatts < system.systemIdleWatts
+  ) {
     ctx.addIssue({
       code: "custom",
       path: ["systemLoadWatts"],
@@ -146,6 +159,7 @@ function validateSystem(
 const dedicatedRecordSchema = z
   .strictObject({
     ...commonShape,
+    ...catalogEconomicsShape,
     ...recordIdentityShape,
     memoryArchitecture: z.literal("dedicated"),
     dedicatedMemoryGBPerDevice: positive,
@@ -155,6 +169,7 @@ const dedicatedRecordSchema = z
 const unifiedRecordSchema = z
   .strictObject({
     ...commonShape,
+    ...catalogEconomicsShape,
     ...recordIdentityShape,
     memoryArchitecture: z.literal("unified"),
     allocatableUnifiedMemoryGB: positive,
@@ -169,6 +184,7 @@ export const DesktopSystemRecordSchema = z.preprocess(
 const dedicatedCustomSchema = z
   .strictObject({
     ...commonShape,
+    ...completeEconomicsShape,
     id: id.optional(),
     memoryArchitecture: z.literal("dedicated"),
     dedicatedMemoryGBPerDevice: positive,
@@ -178,6 +194,7 @@ const dedicatedCustomSchema = z
 const unifiedCustomSchema = z
   .strictObject({
     ...commonShape,
+    ...completeEconomicsShape,
     id: id.optional(),
     memoryArchitecture: z.literal("unified"),
     allocatableUnifiedMemoryGB: positive,

@@ -172,7 +172,7 @@ public/data/systems.json
 public/data/exchange-rates.json
 ```
 
-当前内置版本为 `2026.08-sample.3`，属于方向性示例数据，并非实时市场行情。九类目录需要成套发布。建议原子替换整份 `dist/`；如果使用 CDN 缓存，要确保 manifest 和各目录文件来自同一次构建，避免新 manifest 与旧缓存数据混用。
+当前内置版本为 `2026.08-sample.5`，属于方向性示例数据，并非实时市场行情。九类目录需要成套发布。建议原子替换整份 `dist/`；如果使用 CDN 缓存，要确保 manifest 和各目录文件来自同一次构建，避免新 manifest 与旧缓存数据混用。
 
 修改这些文件后必须重新运行：
 
@@ -209,6 +209,18 @@ Full Data Pack、Browser Library 和 Artificial Analysis 快照的单文件导�
 - Artificial Analysis：前端不会接收或保存 API Key。不要把 Key 配置成 `VITE_*` 或打包进浏览器。应在可信服务端、CI 或构建环境中取得官方 JSON 快照，再从模型对比面板导入。
 - 云端价格：内部计算统一使用 USD / 100 万 Tokens，显示货币转换只发生在输入和展示边界。
 - 隐私、能力和延迟等级：这些是 `assumptions.json` 中可配置的售前规划策略，不是法律结论或行业统一等级。
+- GPU 目录：`supportedCounts` 表示整机可提供的物理显卡数量；只有 `supportsTensorParallel` 为 `true` 时，单个模型才会合并多卡显存。可选的 `peakAiTops` 必须写明精度口径，并附带含日期和 HTTP(S) 来源的规格证据；该值不会换算成 LLM TPS。
+- ThinkCentre 默认项：X Ultra 与 X Tower 当前按用户提供的预发布资料加入，属于方向性数据。X Tower 的负载值来自 TCX 34L Thermal Matrix 中 U9/U7 组合的 `Calculated power`，是设计计算值而非墙上实测功耗；空载功耗和整机价格仍为暂无数据，因此不会计算本地/混合成本或盈亏平衡。双卡配置不会在缺少模型分片证据时自动合并显存，也不会由 TOPS、TGP、电源额定功率或兼容性文案推导 TPS。
+
+### 使用频率不是固定的“高中低”
+
+Daily、Heavy、Always-on 等名称只代表当前 Data Pack 的起始模板，不是行业统一定义。页面会把每个选项量化为：每用户每工作日请求数、每日活跃小时、每月工作日，以及推导出的每用户每月请求数。选择模板后，这些数字仍可直接修改，以客户真实用量为准。
+
+### 模型目录与智能评分
+
+内置目录当前提供 20 个有代表性的本地/开放权重模型，覆盖紧凑工作站、24–32 GB、48–72 GB 和大统一内存等规划区间；它是可扩充的起始集合，不代表穷举市场全部模型。Artificial Analysis 的开放模型目录只用于发现主流模型家族，参数、上下文、许可与部署说明以模型发布方的模型卡为准。它提供的云端价格、速度、延迟或智能评分不会被静默当成本地 TPS 或硬件适配证据。用户仍可通过 Full Data Pack 或 Browser Library 新增、修改和删除模型。
+
+选择“智能”对比指标时，页面会解释当前 Artificial Analysis Intelligence Index v4.1.1：共 9 项评测，Agents 34%、Coding 24%、Scientific Reasoning 24%、General 18%，通常采用英文文本与 pass@1 类条件。它是相对综合分，不代表模型一定能在某张显卡上运行，也不代表 TPS、客户任务适配度或生产可用性。导入的记录只会在同一接口和同一指数版本内对比；内置方向性示例分数会明确显示为另一套数据口径。
 
 ## 11. 上线后的验收清单
 

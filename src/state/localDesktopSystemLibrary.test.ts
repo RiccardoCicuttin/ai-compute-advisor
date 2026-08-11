@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DesktopSystemRecord } from "../systems";
 import type { CustomDesktopSystemDraft, ModelRecord } from "../types";
+import { LocalDesktopSystemRecordSchema } from "../data/schemas";
 import { createDefaultCustomSystemDraft } from "./customSystemDraft";
 import {
   LOCAL_DESKTOP_SYSTEM_LIBRARY_STORAGE_KEY,
@@ -108,6 +109,24 @@ function createMemoryStorage(initial?: string): LocalDesktopSystemLibraryStorage
 }
 
 describe("draftToLocalDesktopSystemRecord", () => {
+  it("does not allow unavailable economics in the browser-local library", () => {
+    const record = recordFromDraft();
+
+    for (const field of [
+      "systemIdleWatts",
+      "systemLoadWatts",
+      "purchasePriceUSD",
+    ] as const) {
+      expect(
+        LocalDesktopSystemRecordSchema.safeParse({
+          ...record,
+          [field]: null,
+        }).success,
+        field,
+      ).toBe(false);
+    }
+  });
+
   it("preserves whole-system, runtime, TOPS and exact model-bound performance fields", () => {
     const result = draftToLocalDesktopSystemRecord(completeDraft(), {
       models: [model],

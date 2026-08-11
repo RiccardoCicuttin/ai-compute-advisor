@@ -151,6 +151,67 @@ describe("pure calculation engine", () => {
     }
   });
 
+  it("keeps a physical dual-card option unpooled without tensor-parallel evidence", () => {
+    const gpu = catalogs.gpus.find(
+      (candidate) => candidate.id === "rtx-pro-5000-blackwell-48gb",
+    )!;
+    const model = catalogs.models.find(
+      (candidate) => candidate.id === "qwen2.5-14b-instruct",
+    )!;
+    const vram = calculateVramRequirement({
+      model,
+      quantization: model.quantizations[0]!,
+      peakContextTokens: 8_192,
+      peakConcurrentUsers: 1,
+      assumptions: catalogs.assumptions.vram,
+    });
+
+    const single = calculateHardwareFit({
+      gpu,
+      gpuCount: 1,
+      vram,
+      assumptions: catalogs.assumptions,
+    });
+    const physicalDual = calculateHardwareFit({
+      gpu,
+      gpuCount: 2,
+      vram,
+      assumptions: catalogs.assumptions,
+    });
+
+    expect(gpu.supportedCounts).toEqual([1, 2]);
+    expect(gpu.supportsTensorParallel).toBe(false);
+    expect(physicalDual.availableVramGB).toBe(gpu.vramGB);
+    expect(physicalDual.availableVramGB).toBe(single.availableVramGB);
+    expect(physicalDual.multiGpuPerformanceScale).toBe(1);
+    expect(
+      physicalDual.warnings.some((warning) =>
+        warning.includes("PHYSICAL_MULTI_GPU_WITHOUT_POOLING_EVIDENCE"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not scale a single-card performance profile across unvalidated physical cards", () => {
+    const gpu = catalogs.gpus.find(
+      (candidate) => candidate.id === "rtx-5060-ti-16gb",
+    )!;
+    const baseProfile = catalogs.inferenceProfiles[0]!;
+    const result = calculatePerformanceCapacity({
+      modelId: baseProfile.modelId,
+      quantizationId: baseProfile.quantizationId,
+      gpu,
+      gpuCount: 2,
+      workload,
+      tokenDemand: calculateTokenDemand(workload),
+      profiles: [{ ...baseProfile, gpuId: gpu.id, gpuCount: 1 }],
+      assumptions: catalogs.assumptions,
+    });
+
+    expect(result.method).toBe("unavailable");
+    expect(result.effectiveTokensPerSecond).toBeNull();
+    expect(result.warnings[0]).toContain("PHYSICAL_MULTI_GPU_PROFILE_UNAVAILABLE");
+  });
+
   it("calculates cloud and hybrid boundary cases", () => {
     const demand = calculateTokenDemand(workload);
     const pricing = {
@@ -364,11 +425,56 @@ describe("pure calculation engine", () => {
       system.purchasePriceUSD,
     );
     expect(result.localCost?.averageSystemPowerWatts).toBeGreaterThanOrEqual(
-      system.systemIdleWatts,
+      system.systemIdleWatts!,
     );
     expect(result.localCost?.averageSystemPowerWatts).toBeLessThanOrEqual(
-      system.systemLoadWatts,
+      system.systemLoadWatts!,
     );
+  });
+
+  it("keeps fit available but withholds economics when system evidence is missing", () => {
+    const system = catalogs.systems.find(
+      (item) => item.id === "directional-discrete-ddr5-workstation",
+    )!;
+    const catalogsWithoutSystemEconomics = {
+      ...catalogs,
+      systems: catalogs.systems.map((item) =>
+        item.id === system.id
+          ? {
+              ...item,
+              systemIdleWatts: null,
+              systemLoadWatts: item.systemLoadWatts,
+              purchasePriceUSD: null,
+            }
+          : item,
+      ),
+    };
+    const config = createDefaultAdvisorConfig(catalogsWithoutSystemEconomics);
+    config.hardwareSelection = {
+      mode: "system",
+      gpuCount: 1,
+      systemInputMode: "catalog",
+      systemId: system.id,
+    };
+
+    const result = calculateAnalysis(config, catalogsWithoutSystemEconomics);
+
+    expect(result.selectedSystem?.economicsEvidenceAvailable).toBe(false);
+    expect(result.selectedGpu?.tdpWatts).toBe(system.systemLoadWatts);
+    expect(result.selectedGpu?.streetPriceUSD).toBeNull();
+    expect(result.hardwareFit).not.toBeNull();
+    expect(result.localCost).toBeNull();
+    expect(result.hybridCost).toBeNull();
+    expect(result.breakEven).toBeNull();
+    expect(result.cloudCost).not.toBeNull();
+    expect(result.status).toBe("incomplete");
+    expect(
+      result.warnings.some(
+        (warning) =>
+          warning.includes("Local economics are unavailable") &&
+          warning.includes("break-even"),
+      ),
+    ).toBe(true);
   });
 
   it("never derives LLM TPS from a custom NPU TOPS specification", () => {

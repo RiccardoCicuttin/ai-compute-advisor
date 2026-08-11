@@ -146,7 +146,7 @@ export const LocalModelDraftSchema = z
     quantizations: z.array(QuantizationProfileSchema).min(1),
     capabilityTierId: z.string().min(1),
     reasoning: z.boolean(),
-    modalities: z.array(z.enum(["text", "image", "audio"])).min(1),
+    modalities: z.array(z.enum(["text", "image", "audio", "video"])).min(1),
     openWeight: z.boolean(),
     commercialUse: z.enum(["allowed", "restricted", "unknown"]),
     kvCacheBytesPerToken: nullablePositive,

@@ -420,6 +420,7 @@
           <span>可验收显存</span><b class="good" id="sumNeed"></b>
         </div>
         <div class="row"><span>目标 / 预计 TPS</span><b id="sumTps"></b></div>
+        <div class="row"><span id="acceleratorSummaryLabel">AI 加速量化</span><b id="sumAccelerator"></b></div>
         <div class="row device-list"><span id="machineListLabel">部署设备清单</span><b id="sumMachineList"></b></div>
         <div class="row"><span id="evidenceLabel">证据状态</span><b id="evidenceStatus">估算，需压测</b></div>
       </div>
@@ -684,7 +685,7 @@
                 );
               })
               .join("")
-          : '<div class="option"><h3>' + (kvKnown ? (english ? 'No eligible deployment option in the current device library' : '当前设备库没有可行部署方案') : (english ? 'Deployment calculation blocked: KV Cache parameter unverified' : 'KV Cache 参数待核验，无法生成部署方案')) + '</h3><p>' + (kvKnown ? (english ? ('Required VRAM: ' + need + 'GB. Largest validated standard configuration: 144GB VRAM. Reduce context or concurrency, change quantization, add a verified device configuration, or evaluate AI accelerator tiering.') : ('需要 ' + need + 'GB 显存；当前标准设备库最大可验收容量为 144GB 显存。请降低上下文或并发、调整量化、补充已验证设备配置，或评估 AI 加速卡分层部署。')) : (english ? 'The model directory entry is retained, but its KV architecture data must be verified from the official Hugging Face configuration before it can enter planning.' : '模型目录记录已保留，但必须先从 Hugging Face 官方配置核验 KV 架构数据，才能参与部署计算。')) + '</p><span class="tag">' + (english ? 'No recommendation generated' : '未生成推荐方案') + '</span></div>';
+          : '<div class="option"><h3>' + (kvKnown ? (english ? 'No eligible deployment option in the current device library' : '当前设备库没有可行部署方案') : (english ? 'Deployment calculation blocked: KV Cache parameter unverified' : 'KV Cache 参数待核验，无法生成部署方案')) + '</h3><p>' + (kvKnown ? (english ? ('Required VRAM: ' + need + 'GB. Largest validated standard configuration: 144GB VRAM. Reduce context or concurrency, change quantization, or add a verified device configuration.') : ('需要 ' + need + 'GB 显存；当前标准设备库最大可验收容量为 144GB 显存。请降低上下文或并发、调整量化，或补充已验证设备配置。')) : (english ? 'The model directory entry is retained, but its KV architecture data must be verified from the official Hugging Face configuration before it can enter planning.' : '模型目录记录已保留，但必须先从 Hugging Face 官方配置核验 KV 架构数据，才能参与部署计算。')) + '</p><span class="tag">' + (english ? 'No recommendation generated' : '未生成推荐方案') + '</span></div>';
         const best = fit[0];
         const deviceListHtml = fit.length ? fit.map((h) => {
           const n = hasWorkloadProfile ? Math.ceil(t / h[2]) : 1, total = n * h[3], remaining = h[1] - need;
@@ -697,6 +698,7 @@
         r.querySelector("#sumMemory").textContent =
           kvKnown ? weight.toFixed(1) + " / " + kv.toFixed(1) + " GB" : weight.toFixed(1) + " GB / 待校验";
         r.querySelector("#sumNeed").textContent = kvKnown ? need + " GB" : "待校验";
+        r.querySelector("#sumAccelerator").textContent = "—";
         r.querySelector("#sumTps").textContent = hasWorkloadProfile ? (t + " / " + (best ? best[2] : "—") + " TPS") : (english ? "Workload profile required" : "需补充工作负载档案");
         const machineCount = best && hasWorkloadProfile ? Math.ceil(t / best[2]) : 0;
         const totalBestMachines = best ? machineCount * best[3] : 0;
@@ -715,23 +717,26 @@
           return { m, weight, kv, kvKnown, hotNeed, need: kvKnown ? Math.ceil(weight + kv + 8) : null };
         }).filter((x) => x.kvKnown && matchesCapability(x.m[0], capability));
         const capacity = shard ? h[1] * count : h[1];
-        const deployable = candidates.filter((x) => tier > 0 ? (x.hotNeed <= capacity && x.weight <= tier) : x.need <= capacity);
-        const nearest = candidates.slice().sort((a, b) => (tier > 0 ? a.hotNeed - b.hotNeed : a.need - b.need))[0];
+        // AI accelerator tier is a quantization capability only. It never adds
+        // inference VRAM, changes model fit, or increases TPS.
+        const deployable = candidates.filter((x) => x.need <= capacity);
+        const nearest = candidates.slice().sort((a, b) => a.need - b.need)[0];
         const acceleratorLabel = tier > 0
-          ? (english ? (tier + "GB AI accelerator tier") : (tier + "GB AI 加速卡分层容量"))
-          : (english ? "No AI accelerator tier" : "未配置 AI 加速卡");
+          ? (english ? (tier + "GB AI accelerator tier, quantization only") : (tier + "GB AI 加速卡分层容量，仅用于量化"))
+          : (english ? "Inference only, no AI accelerator" : "仅推理，未配置 AI 加速卡");
         const ramNote = ram === "custom" ? (english ? " · system RAM pending input" : " · 系统内存待补充") : (+ram < 64 ? (english ? " · system RAM below the 64GB local-inference baseline — validate risk" : " · 系统内存低于 64GB 本地推理基线，需验证风险") : (english ? " · system RAM " + ram + "GB" : " · 系统内存 " + ram + "GB"));
         r.querySelector("#hardwareMeta").textContent = english
-          ? (count + " × " + h[0] + " · " + (shard ? "sharded validated GPU VRAM " + (h[1] * count) : "per-machine validated GPU VRAM " + h[1]) + "GB" + (tier ? " · AI accelerator tier " + tier + "GB" : "") + ramNote + " · " + (ctx / 1024) + "K context · " + con + " concurrent · target " + target + " TPS.")
-          : (count + " × " + h[0] + " · " + (shard ? "可分片 GPU 可验收显存 " + (h[1] * count) : "单机可验收 GPU 显存 " + h[1]) + "GB" + (tier ? " · AI 加速卡分层容量 " + tier + "GB" : "") + ramNote + " · " + (ctx / 1024) + "K 上下文 · " + con + " 并发 · 目标 " + target + " TPS。");
+          ? (count + " × " + h[0] + " · " + (shard ? "sharded validated GPU VRAM " + (h[1] * count) : "per-machine validated GPU VRAM " + h[1]) + "GB" + ramNote + " · " + (ctx / 1024) + "K context · " + con + " concurrent · target " + target + " TPS.")
+          : (count + " × " + h[0] + " · " + (shard ? "可分片 GPU 可验收显存 " + (h[1] * count) : "单机可验收 GPU 显存 " + h[1]) + "GB" + ramNote + " · " + (ctx / 1024) + "K 上下文 · " + con + " 并发 · 目标 " + target + " TPS。");
         r.querySelector("#hardwareMeta").textContent += " " + deviceSpecs(h);
         r.querySelector("#hardwareOptions").innerHTML = deployable.length ? deployable.map((x) =>
-          '<div class="option"><h3>' + x.m[0] + '</h3><p>' + (tier ? (english ? ('GPU-resident hot data: KV Cache ' + x.kv.toFixed(1) + 'GB + runtime reserve 8GB = ' + x.hotNeed + 'GB VRAM; model weights ' + x.weight.toFixed(1) + 'GB use the ' + tier + 'GB AI accelerator tier.') : ('GPU 热数据常驻：KV Cache ' + x.kv.toFixed(1) + 'GB + 运行时预留 8GB = ' + x.hotNeed + 'GB 显存；模型权重 ' + x.weight.toFixed(1) + 'GB 进入 ' + tier + 'GB AI 加速卡分层容量。')) : (english ? ('Weights ' + x.weight.toFixed(1) + 'GB VRAM + KV Cache ' + x.kv.toFixed(1) + 'GB VRAM + runtime reserve 8GB = recommended VRAM ' + x.need + 'GB.') : ('权重 ' + x.weight.toFixed(1) + 'GB 显存 + KV Cache ' + x.kv.toFixed(1) + 'GB 显存 + 运行时预留 8GB = 推荐显存 ' + x.need + 'GB。'))) + (shard ? (english ? (' Uses ' + count + ' machines with cross-device sharding; multi-node runtime validation is required.') : (' 使用 ' + count + ' 台跨设备分片，需验证多机运行时。')) : (english ? (' Independently deployable per machine; up to ' + count + ' service replicas.') : (' 每台独立部署，最多 ' + count + ' 个服务副本。'))) + '</p><span class="tag good">' + (english ? 'Capacity deployable' : '容量可部署') + '</span><span class="tag">' + acceleratorLabel + '</span><span class="tag">' + (tier ? (english ? 'AI-accelerated quantization: available (runtime validation required)' : 'AI 加速量化：可用（需运行时验证）') : (english ? 'AI-accelerated quantization: not configured' : 'AI 加速量化：未配置')) + '</span><span class="tag">' + (english ? ('Target ' + target + ' TPS') : ('目标 ' + target + ' TPS')) + '</span><span class="tag">' + (english ? 'Estimated maximum TPS: pending a model-specific profile' : '预计最高 TPS：待模型专属性能资料') + '</span></div>'
-        ).join("") : '<div class="option"><h3>' + (english ? 'No model fits the current hardware and runtime constraints' : '当前硬件与运行约束下，没有可部署的模型') + '</h3><p>' + (nearest ? (english ? ('Closest candidate: ' + nearest.m[0] + '. It needs ' + (tier ? nearest.hotNeed : nearest.need) + 'GB of ' + (tier ? 'GPU-resident hot-data VRAM' : 'recommended VRAM') + ', while the current capacity is ' + capacity + 'GB. Reduce context or peak concurrency, change quantization, add a device, or enable verified sharding.') : ('最接近候选：' + nearest.m[0] + '。它需要 ' + (tier ? nearest.hotNeed : nearest.need) + 'GB' + (tier ? ' GPU 热数据常驻显存' : ' 推荐显存') + '，当前可用 ' + capacity + 'GB。请降低上下文或峰值并发、调整量化、增加设备，或启用已验证的跨设备分片。')) : (english ? 'No model with verified KV Cache architecture is available under the selected capability filter.' : '当前能力筛选下没有 KV Cache 架构已核验的模型。')) + '</p><span class="tag">' + (english ? 'No capacity match' : '容量不满足') + '</span></div>';
+          '<div class="option"><h3>' + x.m[0] + '</h3><p>' + (english ? ('Weights ' + x.weight.toFixed(1) + 'GB VRAM + KV Cache ' + x.kv.toFixed(1) + 'GB VRAM + runtime reserve 8GB = recommended VRAM ' + x.need + 'GB.') : ('权重 ' + x.weight.toFixed(1) + 'GB 显存 + KV Cache ' + x.kv.toFixed(1) + 'GB 显存 + 运行时预留 8GB = 推荐显存 ' + x.need + 'GB。')) + (shard ? (english ? (' Uses ' + count + ' machines with cross-device sharding; multi-node runtime validation is required.') : (' 使用 ' + count + ' 台跨设备分片，需验证多机运行时。')) : (english ? (' Independently deployable per machine; up to ' + count + ' service replicas.') : (' 每台独立部署，最多 ' + count + ' 个服务副本。'))) + '</p><span class="tag good">' + (english ? 'Capacity deployable' : '容量可部署') + '</span><span class="tag">' + acceleratorLabel + '</span><span class="tag">' + (tier ? (english ? 'Quantizable: yes, inference capacity unchanged' : '可量化：是，推理容量不变') : (english ? 'Inference only, not quantization-enabled' : '仅推理，不支持量化')) + '</span><span class="tag">' + (english ? ('Target ' + target + ' TPS') : ('目标 ' + target + ' TPS')) + '</span><span class="tag">' + (english ? 'Estimated maximum TPS: pending a model-specific profile' : '预计最高 TPS：待模型专属性能资料') + '</span></div>'
+        ).join("") : '<div class="option"><h3>' + (english ? 'No model fits the current hardware and runtime constraints' : '当前硬件与运行约束下，没有可部署的模型') + '</h3><p>' + (nearest ? (english ? ('Closest candidate: ' + nearest.m[0] + '. It needs ' + nearest.need + 'GB recommended VRAM, while the current GPU deployment capacity is ' + capacity + 'GB. Reduce context or peak concurrency, change quantization, add a device, or enable verified sharding. An AI accelerator does not increase inference capacity.') : ('最接近候选：' + nearest.m[0] + '。它需要 ' + nearest.need + 'GB 推荐显存，当前 GPU 推理容量为 ' + capacity + 'GB。请降低上下文或峰值并发、调整量化、增加设备，或启用已验证的跨设备分片。AI 加速卡不会增加推理容量。')) : (english ? 'No model with verified KV Cache architecture is available under the selected capability filter.' : '当前能力筛选下没有 KV Cache 架构已核验的模型。')) + '</p><span class="tag">' + (english ? 'No capacity match' : '容量不满足') + '</span></div>';
         r.querySelector("#title").textContent = displayPlanName(h[0]);
         r.querySelector("#desc").textContent = english ? ("Hardware-to-model evaluation · " + (ctx / 1024) + "K context · " + con + " concurrent") : ("已有硬件反推 · " + (ctx / 1024) + "K 上下文 · " + con + " 并发");
         r.querySelector("#sumMemory").textContent = english ? (deployable.length + " models") : ("共 " + deployable.length + " 个模型");
-        r.querySelector("#sumNeed").textContent = (shard ? h[1] * count : h[1]) + " GB GPU" + (tier ? (english ? " + " + tier + " GB accelerator tier" : " + " + tier + " GB 加速卡分层容量") : "");
+        r.querySelector("#sumNeed").textContent = (shard ? h[1] * count : h[1]) + " GB GPU";
+        r.querySelector("#sumAccelerator").textContent = tier ? (english ? "Quantizable, inference capacity unchanged" : "可量化，推理容量不变") : (english ? "Inference only" : "仅推理");
         r.querySelector("#sumTps").textContent = english ? (target + " TPS (pending validation)") : (target + " TPS（待验证）");
         r.querySelector("#sumMachineList").textContent = count + " × " + h[0];
         if (advanced) advanced.open = advancedWasOpen;
@@ -748,6 +753,7 @@
         r.querySelector("#desc").textContent = description;
         r.querySelector("#sumMemory").textContent = "—";
         r.querySelector("#sumNeed").textContent = "—";
+        r.querySelector("#sumAccelerator").textContent = "—";
         r.querySelector("#sumTps").textContent = "—";
         r.querySelector("#sumMachineList").textContent = "—";
       }
@@ -848,7 +854,7 @@
         relabelOptions("interconnect", english ? ["Unknown / pending validation", "Standard Ethernet", "High-speed network"] : ["未知 / 待验证", "标准以太网", "高速网络"]);
         relabelOptions("dataBoundary", english ? ["Local only", "Cloud allowed after de-identification", "Hybrid cloud allowed"] : ["必须本地", "脱敏后可上云", "允许混合云"]);
         r.querySelector(".summary label").textContent=d.summary; r.querySelector("#machineListLabel").textContent=d.list; r.querySelector("#evidenceTitle").textContent=d.evidence; r.querySelector("#evidenceText").textContent=d.evidenceText;
-        a(".summary .row span")[0].textContent=english?"Weights / KV Cache":"权重 / KV Cache"; a(".summary .row span")[1].textContent=english?"Validated VRAM":"可验收显存"; a(".summary .row span")[2].textContent=english?"Target / expected TPS":"目标 / 预计 TPS"; r.querySelector("#evidenceLabel").textContent=english?"Evidence status":"证据状态"; r.querySelector("#evidenceStatus").textContent=english?"Estimated — validate by benchmark":"估算，需压测";
+        a(".summary .row span")[0].textContent=english?"Weights / KV Cache":"权重 / KV Cache"; a(".summary .row span")[1].textContent=english?"Validated VRAM":"可验收显存"; a(".summary .row span")[2].textContent=english?"Target / expected TPS":"目标 / 预计 TPS"; r.querySelector("#acceleratorSummaryLabel").textContent=english?"AI-accelerated quantization":"AI 加速量化"; r.querySelector("#evidenceLabel").textContent=english?"Evidence status":"证据状态"; r.querySelector("#evidenceStatus").textContent=english?"Estimated — validate by benchmark":"估算，需压测";
         r.querySelector("#deviceModal h2").textContent=english?"Add Device Configuration":"新增设备配置";
         r.querySelector("#deviceModal .hint").textContent=english?"Engineering-maintained fields. New devices are marked Pending Review and participate in recommendations only after approval.":"工程师维护的字段。新增后标记为“待审核”，审核通过才参与正式推荐。";
         const modalLabels=a("#deviceModal label"); const modalEn=["Device name","Device platform","GPU vendor / model","VRAM per GPU (GB)","Supported GPU count","System RAM (GB)","Memory bandwidth (GB/s)","GPU TDP (W)","Peak AI TOPS","System price (optional)","Maximum machines in a plan","Cross-device model sharding","AI accelerator expansion","Performance evidence status","Test runtime","Notes and sources"]; const modalZh=["设备名称","设备平台","GPU 厂商 / 型号","单卡显存（GB）","支持卡数","系统内存（GB）","显存带宽（GB/s）","GPU TDP（W）","峰值 AI TOPS","整机价格（选填）","可用于方案的最大台数","跨设备模型分片","AI 加速卡扩展","性能证据状态","测试运行时","备注与来源"]; modalLabels.forEach((node,i)=>node.textContent=(english?modalEn:modalZh)[i] || node.textContent);

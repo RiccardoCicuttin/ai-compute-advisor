@@ -11,7 +11,7 @@
     }
     .ldc {
       display: grid;
-      grid-template-columns: minmax(190px, 210px) minmax(0, 1fr) minmax(280px, 340px);
+      grid-template-columns: minmax(230px, 250px) minmax(0, 1fr) minmax(280px, 340px);
       min-height: 720px;
       width: 100%;
       overflow: hidden;
@@ -24,6 +24,7 @@
     .ldc .brand {
       font-weight: 800;
       padding: 4px 10px 25px;
+      white-space: nowrap;
     }
     .ldc .brand b {
       color: #928eff;
@@ -36,6 +37,7 @@
       letter-spacing: 0.1em;
       font-weight: 800;
       margin: 16px 10px 8px;
+      white-space: nowrap;
     }
     .ldc aside button {
       width: 100%;
@@ -244,7 +246,7 @@
     }
     @media (max-width: 1120px) {
       .ldc {
-        grid-template-columns: 190px 1fr;
+        grid-template-columns: minmax(210px, 230px) minmax(0, 1fr);
       }
       .ldc .right {
         display: none;
@@ -254,9 +256,7 @@
       .ldc {
         grid-template-columns: 1fr;
       }
-      .ldc aside {
-        display: none;
-      }
+      .ldc aside { display: flex; }
       .ldc main {
         padding: 18px;
       }
@@ -299,12 +299,36 @@
     #live-deployment-calculator .modal input, #live-deployment-calculator .modal select { width: 100%; min-width: 0; border: 1px solid #485a78; background: #101827; color: #f5f7ff; border-radius: 7px; padding: 9px 10px; font-size: 12px; }
     @media (max-width: 620px) { #live-deployment-calculator .modal .grid { grid-template-columns: minmax(0, 1fr); } }
     @media (max-width: 1280px) {
-      #live-deployment-calculator .ldc { grid-template-columns: minmax(180px, 210px) minmax(0, 1fr) !important; overflow-x: hidden; }
+      #live-deployment-calculator .ldc { grid-template-columns: minmax(210px, 230px) minmax(0, 1fr) !important; overflow-x: hidden; }
       #live-deployment-calculator .right { grid-column: 2; border-left: 0; border-top: 1px solid #29344a; }
     }
     @media (max-width: 760px) {
       #live-deployment-calculator .ldc { grid-template-columns: minmax(0, 1fr) !important; }
-      #live-deployment-calculator aside { display: none; }
+      #live-deployment-calculator aside {
+        display: flex !important;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 12px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        border-right: 0;
+        border-bottom: 1px solid #29344a;
+        scrollbar-width: thin;
+      }
+      #live-deployment-calculator aside .brand {
+        flex: 0 0 auto;
+        padding: 2px 10px 2px 2px;
+        font-size: 12px;
+      }
+      #live-deployment-calculator aside .brand b { font-size: 15px; }
+      #live-deployment-calculator aside .sec { display: none; }
+      #live-deployment-calculator aside button {
+        width: auto;
+        flex: 0 0 auto;
+        margin: 0;
+        padding: 8px 10px;
+        white-space: nowrap;
+      }
       #live-deployment-calculator main { padding: 18px 14px; }
       #live-deployment-calculator .right { grid-column: 1; }
       #live-deployment-calculator .grid, #live-deployment-calculator .formula { grid-template-columns: minmax(0, 1fr) !important; }

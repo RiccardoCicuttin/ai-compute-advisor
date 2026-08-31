@@ -94,7 +94,7 @@ describe("mainstream local model catalog", () => {
     }
 
     const qwen = model("qwen3-235b-a22b");
-    expect(qwen.contextWindowTokens).toBe(32_768);
+    expect(qwen.contextWindowTokens).toBe(40_960);
     expect(qwen.recommendedQuantizationId).toBe("q4");
     expect(qwen.quantizations.map((candidate) => candidate.id)).not.toContain(
       "q2",

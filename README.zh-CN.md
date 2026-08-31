@@ -174,6 +174,8 @@ public/data/exchange-rates.json
 
 当前内置版本为 `2026.08-sample.5`，属于方向性示例数据，并非实时市场行情。九类目录需要成套发布。建议原子替换整份 `dist/`；如果使用 CDN 缓存，要确保 manifest 和各目录文件来自同一次构建，避免新 manifest 与旧缓存数据混用。
 
+`models.json` 中的部分字段（`contextWindowTokens`、`kvCacheBytesPerToken`）现由 `pipeline/`（`hf_sync`）每周自动从 Hugging Face 同步生成，其余编辑性字段仍在 `pipeline/models.seed.yaml` 中人工维护；不要直接手工编辑 `models.json`。详见 [README.md](README.md#model-catalog-manual-vs-automated) 的 “Model catalog: manual vs. automated” 一节。
+
 修改这些文件后必须重新运行：
 
 ```bash

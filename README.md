@@ -45,9 +45,56 @@ Open the local URL printed by Vite. Production verification:
 npm run check
 ```
 
-## Important limitation
+## Model catalog: manual vs. automated
 
-The current static interface ships a maintained starter directory. A real Hugging Face directory refresh requires a server-side synchronization task that fetches repository metadata and parses architecture-specific KV Cache parameters. A model with incomplete KV data may appear in the directory, but must not produce a capacity recommendation.
+`public/data/models.json` is a **generated file** — don't hand-edit it. It's produced by `pipeline/`, a small Python job (`hf_sync`) that merges two kinds of data:
+
+| Field group | Source | Edited by |
+|---|---|---|
+| Capability tier, license, commercial-use terms, quantization presets, display name, notes | `pipeline/models.seed.yaml` | A human, by hand |
+| `contextWindowTokens`, `kvCacheBytesPerToken` | Each model's live Hugging Face `config.json` | The pipeline, automatically |
+
+### What's automated
+
+A weekly GitHub Actions workflow (`.github/workflows/sync-models.yml`, Mondays 06:00 UTC, or manual dispatch):
+
+1. Installs the pipeline (`uv sync --project pipeline`) and runs its own lint/type/test suite.
+2. Runs `python -m hf_sync.build_catalog`: for every model in `models.seed.yaml`, pulls `config.json` from its Hugging Face repo, derives `contextWindowTokens` and `kvCacheBytesPerToken` from the architecture, and merges those onto the curated seed fields.
+3. Re-validates the regenerated `models.json` against the app's own schema (`npm run lint && npm test && npm run build`) — this is the real gate, not the pipeline's own Python-side check.
+4. If anything changed, opens a pull request with the diff and attaches `pipeline/gaps_report.txt` (see below) so a reviewer sees exactly what moved and why.
+
+A model whose Hugging Face pull fails, or whose merged record fails validation, is never dropped or zeroed out — its previously committed entry is carried forward unchanged, and the reason is logged to `gaps_report.txt`. Nothing fails silently; a stale or misspelled `hfRepoId` shows up as a reported gap, not a missing or broken model.
+
+### What's manual
+
+To add, remove, or re-describe a tracked model, edit `pipeline/models.seed.yaml` by hand. Every field there except the two architecture-derived ones above is editorial and is never touched by the pipeline:
+
+- `id`, `hfRepoId`, `name`, `provider`, `family`
+- `totalParametersB`, `activeParametersB`, `modelType` (`dense`/`moe`)
+- `capabilityTierId`, `reasoning`, `modalities`, `openWeight`, `commercialUse`
+- `recommendedQuantizationId` and the `quantizations` list
+- `notes`
+
+A new model needs every field filled in — the pipeline won't invent capability tier, license, or quantization data on your behalf. `hfRepoId` must be a real, correctly spelled Hugging Face repo id, or the sync will just log a gap and carry the previous entry forward (or exclude the model outright if there is no previous entry).
+
+### Running the pipeline locally
+
+```bash
+cd pipeline
+uv sync
+uv run python -m hf_sync.build_catalog --dry-run   # validate + report only, writes nothing
+uv run python -m hf_sync.build_catalog              # writes models.json, manifest.json, gaps_report.txt
+```
+
+Set `HF_TOKEN` in the environment to pull gated repos (e.g. `meta-llama/*`); without it, gated models silently fall back to their previous entry and show up as a gap instead of failing the run.
+
+```bash
+uv run ruff check src tests
+uv run mypy
+uv run pytest -q
+```
+
+After regenerating `models.json`, still run `npm run check` from the repo root before committing. `pipeline/src/hf_sync/catalog_schema.py` is a hand-maintained, defense-in-depth mirror of the real schema in `src/data/schemas/catalogSchemas.ts` — not a replacement for it.
 
 ---
 
@@ -68,3 +115,23 @@ AI Compute Advisor 是面向售前的模型与设备部署顾问。它支持从�
 - 显卡规格以 NVIDIA、AMD、Lenovo 等厂商官方来源为准。
 - AI TOPS 仅作为硬件规格，不直接换算为 LLM TPS。
 - 官方模型与设备库统一维护；用户可在本地保存客户设备、报价和实测数据，默认不回传或改写官方结论。
+
+### 模型目录：人工维护与自动同步
+
+`public/data/models.json` 是**自动生成的文件**，请勿手工编辑。它由 `pipeline/`（一个名为 `hf_sync` 的小型 Python 任务）合并两类数据生成：
+
+- **人工维护**（`pipeline/models.seed.yaml`）：能力分级、许可证、商用条款、量化档位、显示名称、备注等编辑性字段。新增模型时必须手动填写全部字段，包括正确拼写的 `hfRepoId`；流水线不会替你猜测能力分级或许可证。
+- **自动同步**：`contextWindowTokens` 与 `kvCacheBytesPerToken` 来自模型在 Hugging Face 上的实时 `config.json`，由每周一 06:00 UTC 运行的 GitHub Actions 工作流（`.github/workflows/sync-models.yml`，也可手动触发）拉取、推导并合并到人工字段之上，再用 `npm run lint && npm test && npm run build` 做最终校验，通过后自动开 PR。
+
+某个模型的 Hugging Face 拉取失败或合并后校验不通过时，不会被清零或从目录中移除——会保留上一次提交的记录，并把原因写入 `pipeline/gaps_report.txt`，不会静默失败。
+
+本地运行：
+
+```bash
+cd pipeline
+uv sync
+uv run python -m hf_sync.build_catalog --dry-run   # 仅校验并生成报告，不写文件
+uv run python -m hf_sync.build_catalog              # 写入 models.json、manifest.json、gaps_report.txt
+```
+
+拉取受限（gated）仓库（如 `meta-llama/*`）需要设置环境变量 `HF_TOKEN`；未设置时该模型会静默回退为上一次的记录，并记为一条 gap，而不会导致运行失败。重新生成 `models.json` 后，仍需在仓库根目录运行 `npm run check` 才能提交——`catalog_schema.py` 只是 `src/data/schemas/catalogSchemas.ts` 的人工同步镜像，不能替代真正的校验。

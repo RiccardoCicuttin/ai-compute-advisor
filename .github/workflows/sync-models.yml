@@ -1,0 +1,102 @@
+name: Sync models.json from Hugging Face
+
+on:
+  schedule:
+    # Mondays 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-models
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.11.31"
+
+      - name: Sync pipeline dependencies
+        run: uv sync --project pipeline
+
+      - name: Run pipeline lint and tests
+        run: |
+          uv run --project pipeline ruff check src tests
+          uv run --project pipeline mypy
+          uv run --project pipeline pytest -q
+
+      - name: Refresh public/data/models.json from Hugging Face
+        env:
+          # Required for gated repos (e.g. meta-llama/*). Without this,
+          # gated models silently fall back to their previous entry and
+          # are logged as a gap, never a workflow failure.
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: uv run --project pipeline python -m hf_sync.build_catalog
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.13.0
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      # This is the real gate: it runs the zod schema and cross-catalog
+      # relationship validation the pipeline's Python-side check only
+      # mirrors. A regenerated models.json that fails here must not be
+      # committed.
+      - name: Validate regenerated catalog against the app
+        run: |
+          npm run lint
+          npm test
+          npm run build
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet -- public/data/models.json public/data/manifest.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload gaps report
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-sync-gaps-report
+          path: pipeline/gaps_report.txt
+          if-no-files-found: ignore
+
+      - name: Open pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="data/hf-sync-$(date -u +%Y-%m-%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add public/data/models.json public/data/manifest.json
+          git commit -m "Refresh models.json from Hugging Face"
+          git push origin "$branch"
+          gaps_note=""
+          if [ -f pipeline/gaps_report.txt ]; then
+            gaps_note=$'\n\n```\n'"$(cat pipeline/gaps_report.txt)"$'\n```'
+          fi
+          gh pr create \
+            --title "Weekly Hugging Face model sync" \
+            --body "Automated refresh of architecture-derived fields (context window, KV-cache bytes/token) in \`public/data/models.json\` from each tracked model's Hugging Face \`config.json\`. Editorial fields (capability tier, license, quantizations) are untouched — they come from \`pipeline/models.seed.yaml\`.${gaps_note}" \
+            --base main \
+            --head "$branch"

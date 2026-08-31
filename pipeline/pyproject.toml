@@ -1,0 +1,47 @@
+[project]
+name = "hf-sync"
+version = "0.1.0"
+description = "Weekly Hugging Face architecture refresh for ai-compute-advisor's models.json"
+requires-python = ">=3.12"
+dependencies = [
+    "huggingface-hub>=0.25",
+    "pydantic>=2.9",
+    "pyyaml>=6.0",
+    "loguru>=0.7",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8.3",
+    "types-pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hf_sync"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Field names mirror the app's camelCase JSON schema (catalogSchemas.ts) on
+# purpose — model_dump() must produce exactly those keys.
+"src/hf_sync/seed.py" = ["N815"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"

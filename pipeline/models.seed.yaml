@@ -1,0 +1,487 @@
+# Editorial source of truth for which models ai-compute-advisor tracks.
+#
+# Every field here except hfRepoId is copied straight from the currently
+# committed public/data/models.json — this file bootstraps the seed from
+# the existing catalog so the first sync run is a pure refresh, not a
+# rewrite. hfRepoId is this maintainer's best-effort guess at each model's
+# Hugging Face repo; a handful are cross-checked against
+# llm-specs-pipeline/data/crosswalk.csv, the rest are conventional
+# "org/Model-Name" guesses. A wrong guess is not a silent failure: build_catalog.py
+# will fail to pull it, log it in gaps_report.txt, and keep this model's
+# previous catalog entry untouched until the repo id here is corrected.
+#
+# To add a new tracked model: add a row with every field below filled in.
+# The pipeline will never invent capabilityTierId, commercialUse,
+# quantizations, or notes on your behalf.
+
+models:
+  - id: llama-3.2-3b-instruct
+    hfRepoId: meta-llama/Llama-3.2-3B-Instruct
+    name: Llama 3.2 3B Instruct
+    provider: Meta
+    family: Llama 3.2
+    modelType: dense
+    totalParametersB: 3.21
+    activeParametersB: 3.21
+    maxOutputTokens: 8192
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: basic
+    reasoning: false
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: Compact local baseline for light assistant and extraction workloads.
+
+  - id: qwen2.5-14b-instruct
+    hfRepoId: Qwen/Qwen2.5-14B-Instruct
+    name: Qwen2.5 14B Instruct
+    provider: Alibaba Cloud
+    family: Qwen2.5
+    modelType: dense
+    totalParametersB: 14.7
+    activeParametersB: 14.7
+    maxOutputTokens: 8192
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: balanced
+    reasoning: false
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: Balanced local model used as a directional planning example.
+
+  - id: mixtral-8x7b-instruct
+    hfRepoId: mistralai/Mixtral-8x7B-Instruct-v0.1
+    name: Mixtral 8x7B Instruct
+    provider: Mistral AI
+    family: Mixtral
+    modelType: moe
+    totalParametersB: 46.7
+    activeParametersB: 12.9
+    maxOutputTokens: 8192
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.06 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.04 }
+    capabilityTierId: balanced
+    reasoning: false
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: "MoE example: weight capacity uses 46.7B total parameters, not 12.9B active parameters."
+
+  - id: llama-3.1-70b-instruct
+    hfRepoId: meta-llama/Llama-3.1-70B-Instruct
+    name: Llama 3.1 70B Instruct
+    provider: Meta
+    family: Llama 3.1
+    modelType: dense
+    totalParametersB: 70.6
+    activeParametersB: 70.6
+    maxOutputTokens: 8192
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: false
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: Large local model for advanced reasoning and RAG planning scenarios.
+
+  - id: qwen3.5-9b
+    hfRepoId: Qwen/Qwen3.5-9B
+    name: Qwen3.5 9B
+    provider: Qwen
+    family: Qwen3.5
+    modelType: dense
+    totalParametersB: 9
+    activeParametersB: 9
+    maxOutputTokens: 32768
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text, image, video]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Current compact multimodal and reasoning option. Specs and Apache 2.0 license:
+      official Qwen/Qwen3.5-9B model card. Fit is calculated from weights plus
+      configured KV/runtime/safety overhead; it does not verify runtime compatibility
+      or TPS. Long context can require substantially more memory than the weight estimate.
+
+  - id: gemma-4-12b-it
+    hfRepoId: google/gemma-4-12b-it
+    name: Gemma 4 12B IT
+    provider: Google
+    family: Gemma 4
+    modelType: dense
+    totalParametersB: 11.95
+    activeParametersB: 11.95
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: bf16, label: BF16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text, image, audio, video]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Multimodal Gemma 4 workstation model. Specs and Apache 2.0 license: official
+      Google Gemma 4 model card. Fit is calculated from weights plus configured
+      KV/runtime/safety overhead; it does not verify runtime compatibility or TPS.
+      Audio support depends on the selected checkpoint and runtime.
+
+  - id: phi-4-14b
+    hfRepoId: microsoft/phi-4
+    name: Phi-4 14B
+    provider: Microsoft
+    family: Phi-4
+    modelType: dense
+    totalParametersB: 14
+    activeParametersB: 14
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Compact reasoning-focused dense model. Specs and MIT license: official
+      microsoft/phi-4 model card. Fit is calculated from weights plus configured
+      KV/runtime/safety overhead; it does not verify runtime compatibility or TPS.
+
+  - id: deepseek-r1-distill-qwen-14b
+    hfRepoId: deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
+    name: DeepSeek-R1-Distill-Qwen-14B
+    provider: DeepSeek
+    family: DeepSeek-R1 Distill
+    modelType: dense
+    totalParametersB: 14
+    activeParametersB: 14
+    maxOutputTokens: 32768
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Reasoning distillation based on Qwen2.5. Specs, local-run guidance and
+      MIT/Apache license lineage: official deepseek-ai model card. Fit is calculated
+      from weights plus configured KV/runtime/safety overhead; it does not verify
+      runtime compatibility or TPS.
+
+  - id: gpt-oss-20b
+    hfRepoId: openai/gpt-oss-20b
+    name: gpt-oss-20b
+    provider: OpenAI
+    family: gpt-oss
+    modelType: moe
+    totalParametersB: 21
+    activeParametersB: 3.6
+    recommendedQuantizationId: mxfp4
+    quantizations:
+      - { id: mxfp4, label: MXFP4 (native), bitsPerParameter: 4, packingOverheadRatio: 0.1 }
+      - { id: bf16, label: BF16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Officially released in native MXFP4 and described by OpenAI as runnable
+      within 16GB memory. Specs and Apache 2.0 license: OpenAI gpt-oss model card.
+      Calculator fit adds conservative KV/runtime/safety overhead, so its recommended
+      capacity can exceed the publisher's minimum. No local TPS is assumed.
+
+  - id: mistral-small-3.1-24b-instruct
+    hfRepoId: mistralai/Mistral-Small-3.1-24B-Instruct-2503
+    name: Mistral Small 3.1 24B Instruct
+    provider: Mistral AI
+    family: Mistral Small 3.1
+    modelType: dense
+    totalParametersB: 24
+    activeParametersB: 24
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: bf16, label: BF16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: false
+    modalities: [text, image]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Mainstream multimodal local model; Mistral documents quantized deployment on
+      one RTX 4090 or a 32GB-memory MacBook. Specs and Apache 2.0 license: official
+      Mistral model card. Fit is calculated from weights plus configured
+      KV/runtime/safety overhead; it does not verify runtime compatibility or TPS.
+
+  - id: qwen3.5-27b
+    hfRepoId: Qwen/Qwen3.5-27B
+    name: Qwen3.5 27B
+    provider: Qwen
+    family: Qwen3.5
+    modelType: dense
+    totalParametersB: 27
+    activeParametersB: 27
+    maxOutputTokens: 32768
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text, image, video]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Current dense multimodal and reasoning workstation model. Specs and Apache
+      2.0 license: official Qwen/Qwen3.5-27B model card. Fit is calculated from
+      weights plus configured KV/runtime/safety overhead; it does not verify runtime
+      compatibility or TPS. Long context can require substantially more memory than
+      the weight estimate.
+
+  - id: gemma-4-26b-a4b-it
+    hfRepoId: google/gemma-4-26b-a4b-it
+    name: Gemma 4 26B A4B IT
+    provider: Google
+    family: Gemma 4
+    modelType: moe
+    totalParametersB: 25.2
+    activeParametersB: 3.8
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.06 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.04 }
+      - { id: bf16, label: BF16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text, image, video]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Gemma 4 MoE workstation model; the A4B label rounds the official 3.8B active
+      out of 25.2B total parameters. Specs and Apache 2.0 license: official Google
+      Gemma 4 model card. Fit uses total weights, not active parameters, plus
+      configured overhead; it does not verify runtime compatibility or TPS.
+
+  - id: gemma-4-31b-it
+    hfRepoId: google/gemma-4-31B-it
+    name: Gemma 4 31B IT
+    provider: Google
+    family: Gemma 4
+    modelType: dense
+    totalParametersB: 30.7
+    activeParametersB: 30.7
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: bf16, label: BF16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text, image, video]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Largest dense Gemma 4 workstation option. Specs and Apache 2.0 license:
+      official google/gemma-4-31B model card. Fit is calculated from weights plus
+      configured KV/runtime/safety overhead; it does not verify runtime compatibility
+      or TPS.
+
+  - id: deepseek-r1-distill-qwen-32b
+    hfRepoId: deepseek-ai/DeepSeek-R1-Distill-Qwen-32B
+    name: DeepSeek-R1-Distill-Qwen-32B
+    provider: DeepSeek
+    family: DeepSeek-R1 Distill
+    modelType: dense
+    totalParametersB: 32
+    activeParametersB: 32
+    maxOutputTokens: 32768
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.05 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.03 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Mainstream local reasoning distillation based on Qwen2.5. Specs, local-run
+      guidance and MIT/Apache license lineage: official deepseek-ai model card. Fit
+      is calculated from weights plus configured KV/runtime/safety overhead; it does
+      not verify runtime compatibility or TPS.
+
+  - id: qwen3.6-35b-a3b
+    hfRepoId: Qwen/Qwen3.6-35B-A3B
+    name: Qwen3.6 35B A3B
+    provider: Qwen
+    family: Qwen3.6
+    modelType: moe
+    totalParametersB: 35
+    activeParametersB: 3
+    maxOutputTokens: 32768
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.06 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.04 }
+      - { id: fp16, label: FP16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: true
+    modalities: [text, image, video]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Current open-weight Qwen coding and multimodal MoE; about 3B of 35B parameters
+      activate per token. Specs and Apache 2.0 license: official Qwen/Qwen3.6-35B-A3B
+      model card. Fit uses total weights plus configured overhead; it does not
+      verify runtime compatibility or TPS.
+
+  - id: llama-4-scout-17b-16e-instruct
+    hfRepoId: meta-llama/Llama-4-Scout-17B-16E-Instruct
+    name: Llama 4 Scout 17B-16E Instruct
+    provider: Meta
+    family: Llama 4
+    modelType: moe
+    totalParametersB: 109
+    activeParametersB: 17
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.06 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.04 }
+      - { id: bf16, label: BF16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: advanced
+    reasoning: false
+    modalities: [text, image]
+    openWeight: true
+    commercialUse: restricted
+    notes: >-
+      Multimodal MoE with 109B total and 17B active parameters. Specs and license
+      conditions: official Meta Llama 4 Scout model card. Commercial use is marked
+      restricted because the custom Llama 4 Community License includes conditions.
+      Fit uses total weights plus configured overhead; the 10M maximum context is
+      not a promise that full context fits local memory, and runtime/TPS remain
+      unverified.
+
+  - id: mistral-small-4-119b
+    hfRepoId: mistralai/Mistral-Small-4-119B-2603
+    name: Mistral Small 4 119B
+    provider: Mistral AI
+    family: Mistral Small 4
+    modelType: moe
+    totalParametersB: 119
+    activeParametersB: 6.5
+    recommendedQuantizationId: nvfp4
+    quantizations:
+      - { id: nvfp4, label: NVFP4 (official checkpoint), bitsPerParameter: 4, packingOverheadRatio: 0.08 }
+      - { id: fp8, label: FP8, bitsPerParameter: 8, packingOverheadRatio: 0.04 }
+    capabilityTierId: frontier
+    reasoning: true
+    modalities: [text, image]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Current configurable instruct/reasoning/coding MoE. Specs, official NVFP4
+      checkpoint and Apache 2.0 license: Mistral Small 4 publisher model cards. The
+      4-bit planning path can fit a 96GB class memory envelope at moderate context,
+      but runtime support, long-context memory and TPS must be validated.
+
+  - id: gpt-oss-120b
+    hfRepoId: openai/gpt-oss-120b
+    name: gpt-oss-120b
+    provider: OpenAI
+    family: gpt-oss
+    modelType: moe
+    totalParametersB: 117
+    activeParametersB: 5.1
+    recommendedQuantizationId: mxfp4
+    quantizations:
+      - { id: mxfp4, label: MXFP4 (native), bitsPerParameter: 4, packingOverheadRatio: 0.1 }
+      - { id: bf16, label: BF16, bitsPerParameter: 16, packingOverheadRatio: 0 }
+    capabilityTierId: frontier
+    reasoning: true
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Officially released in native MXFP4 and described by OpenAI as runnable on a
+      single 80GB GPU. Specs and Apache 2.0 license: OpenAI gpt-oss model card.
+      Calculator fit adds configured KV/runtime/safety overhead and therefore
+      targets a 96GB-class envelope at moderate context; no local TPS is assumed.
+
+  - id: qwen3-235b-a22b
+    hfRepoId: Qwen/Qwen3-235B-A22B
+    name: Qwen3 235B A22B
+    provider: Qwen
+    family: Qwen3
+    modelType: moe
+    totalParametersB: 235
+    activeParametersB: 22
+    maxOutputTokens: 32768
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.06 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.04 }
+    capabilityTierId: frontier
+    reasoning: true
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: >-
+      Official public Qwen3 model is 235B total / 22B active under Apache 2.0, with
+      a native 32,768-token context; 131,072 tokens requires the documented YaRN
+      extension. The official GGUF release provides Q4/Q5/Q6/Q8 variants, so Q4 is
+      the smallest catalog quantization allowed to drive fit. The supplied X Ultra
+      pre-release claim for Qwen3.5-235B-A22B (Q2) remains a compatibility note on
+      that system, not a validated checkpoint or performance observation. No public
+      Qwen3.5-235B-A22B model card was found, so this record intentionally uses the
+      verified Qwen3 identity. Runtime, quality and TPS require direct validation.
+
+  - id: deepseek-r1-671b
+    hfRepoId: deepseek-ai/DeepSeek-R1
+    name: DeepSeek-R1 671B
+    provider: DeepSeek
+    family: DeepSeek-R1
+    modelType: moe
+    totalParametersB: 671
+    activeParametersB: 37
+    maxOutputTokens: 16384
+    recommendedQuantizationId: q4
+    quantizations:
+      - { id: q4, label: 4-bit, bitsPerParameter: 4, packingOverheadRatio: 0.06 }
+      - { id: q8, label: 8-bit, bitsPerParameter: 8, packingOverheadRatio: 0.04 }
+    capabilityTierId: frontier
+    reasoning: true
+    modalities: [text]
+    openWeight: true
+    commercialUse: allowed
+    notes: Frontier-class MoE example. Local fit uses total parameters and a conservative KV fallback.

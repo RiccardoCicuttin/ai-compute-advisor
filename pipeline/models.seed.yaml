@@ -384,6 +384,12 @@ models:
     modalities: [text, image]
     openWeight: true
     commercialUse: restricted
+    # 10,000,000 was a hand-typed "10M" approximation that isn't a clean
+    # binary value (displays as an ugly 9765.625K in the UI). The live HF
+    # config reports 10,485,760 = 10 x 1,048,576, matching Meta's own "10M
+    # context" claim exactly — confirmed correct, not a RoPE-scaling
+    # artifact (see pipeline/src/hf_sync/architecture.py's handling).
+    contextWindowTokensOverride: 10485760
     notes: >-
       Multimodal MoE with 109B total and 17B active parameters. Specs and license
       conditions: official Meta Llama 4 Scout model card. Commercial use is marked

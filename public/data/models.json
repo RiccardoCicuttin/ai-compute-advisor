@@ -658,7 +658,7 @@
       "openWeight": true,
       "commercialUse": "restricted",
       "notes": "Multimodal MoE with 109B total and 17B active parameters. Specs and license conditions: official Meta Llama 4 Scout model card. Commercial use is marked restricted because the custom Llama 4 Community License includes conditions. Fit uses total weights plus configured overhead; the 10M maximum context is not a promise that full context fits local memory, and runtime/TPS remain unverified.",
-      "contextWindowTokens": 10000000,
+      "contextWindowTokens": 10485760,
       "kvCacheBytesPerToken": 196608.0
     },
     {

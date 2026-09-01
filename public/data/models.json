@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "catalogId": "models",
-  "lastUpdated": "2026-08-31",
+  "lastUpdated": "2026-09-01",
   "source": {
     "label": "Artificial Analysis open-model index (family discovery)",
     "url": "https://artificialanalysis.ai/models/open-source",
@@ -88,7 +88,7 @@
       "openWeight": true,
       "commercialUse": "allowed",
       "notes": "Balanced local model used as a directional planning example.",
-      "contextWindowTokens": 32768,
+      "contextWindowTokens": 131072,
       "kvCacheBytesPerToken": 196608.0
     },
     {
@@ -658,7 +658,7 @@
       "openWeight": true,
       "commercialUse": "restricted",
       "notes": "Multimodal MoE with 109B total and 17B active parameters. Specs and license conditions: official Meta Llama 4 Scout model card. Commercial use is marked restricted because the custom Llama 4 Community License includes conditions. Fit uses total weights plus configured overhead; the 10M maximum context is not a promise that full context fits local memory, and runtime/TPS remain unverified.",
-      "contextWindowTokens": 10485760,
+      "contextWindowTokens": 10000000,
       "kvCacheBytesPerToken": 196608.0
     },
     {
@@ -693,7 +693,7 @@
       "openWeight": true,
       "commercialUse": "allowed",
       "notes": "Current configurable instruct/reasoning/coding MoE. Specs, official NVFP4 checkpoint and Apache 2.0 license: Mistral Small 4 publisher model cards. The 4-bit planning path can fit a 96GB class memory envelope at moderate context, but runtime support, long-context memory and TPS must be validated.",
-      "contextWindowTokens": 1048576,
+      "contextWindowTokens": 262144,
       "kvCacheBytesPerToken": 589824.0
     },
     {
@@ -762,7 +762,7 @@
       "openWeight": true,
       "commercialUse": "allowed",
       "notes": "Official public Qwen3 model is 235B total / 22B active under Apache 2.0, with a native 32,768-token context; 131,072 tokens requires the documented YaRN extension. The official GGUF release provides Q4/Q5/Q6/Q8 variants, so Q4 is the smallest catalog quantization allowed to drive fit. The supplied X Ultra pre-release claim for Qwen3.5-235B-A22B (Q2) remains a compatibility note on that system, not a validated checkpoint or performance observation. No public Qwen3.5-235B-A22B model card was found, so this record intentionally uses the verified Qwen3 identity. Runtime, quality and TPS require direct validation.",
-      "contextWindowTokens": 40960,
+      "contextWindowTokens": 32768,
       "kvCacheBytesPerToken": 192512.0
     },
     {
@@ -797,7 +797,7 @@
       "openWeight": true,
       "commercialUse": "allowed",
       "notes": "Frontier-class MoE example. Local fit uses total parameters and a conservative KV fallback.",
-      "contextWindowTokens": 163840,
+      "contextWindowTokens": 131072,
       "kvCacheBytesPerToken": 1748992.0
     }
   ]

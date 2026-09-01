@@ -94,7 +94,10 @@ describe("mainstream local model catalog", () => {
     }
 
     const qwen = model("qwen3-235b-a22b");
-    expect(qwen.contextWindowTokens).toBe(40_960);
+    // The pipeline's HF-derived 40,960 disagrees with the previously
+    // committed value and isn't confirmed against Qwen's docs, so the
+    // divergence guard holds the catalog at the last known-good value.
+    expect(qwen.contextWindowTokens).toBe(32_768);
     expect(qwen.recommendedQuantizationId).toBe("q4");
     expect(qwen.quantizations.map((candidate) => candidate.id)).not.toContain(
       "q2",

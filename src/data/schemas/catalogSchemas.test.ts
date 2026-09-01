@@ -34,7 +34,7 @@ const rawBundle = {
 describe("catalog schemas", () => {
   it("validates and normalizes every bundled catalog", () => {
     const parsed = parseCatalogBundle(rawBundle);
-    expect(parsed.dataVersion).toBe("2026-08-31-hf-sync");
+    expect(parsed.dataVersion).toBe("2026-09-01-hf-sync");
     expect(parsed.models.length).toBeGreaterThanOrEqual(5);
     expect(parsed.gpus.length).toBeGreaterThanOrEqual(4);
     expect(parsed.systems.length).toBeGreaterThanOrEqual(4);

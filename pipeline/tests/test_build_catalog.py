@@ -125,6 +125,54 @@ def test_seed_supplied_context_window_used_when_pull_fails(monkeypatch: pytest.M
     assert result.gaps[0].action == "carried-forward-stale"
 
 
+def test_diverging_context_window_is_held_back_and_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # config.json now reports a different max_position_embeddings than what's
+    # committed (e.g. a RoPE-scaling ceiling) — must not silently overwrite.
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: LLAMA_3_1_8B_CONFIG)
+
+    seed = [make_seed_model()]
+    previous = {"test-model": {"contextWindowTokens": 4096}}
+    result = build_catalog.build(seed, previous)
+
+    assert len(result.records) == 1
+    record = result.records[0]
+    assert record["contextWindowTokens"] == 4096  # kept, not overwritten with 131072
+    assert (
+        record["kvCacheBytesPerToken"] == 131072
+    )  # unaffected — no divergence guard on this field
+    assert len(result.gaps) == 1
+    assert result.gaps[0].action == "carried-forward-stale"
+    assert "131072" in result.gaps[0].reason
+    assert "4096" in result.gaps[0].reason
+
+
+def test_context_window_override_wins_over_derived_and_previous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: LLAMA_3_1_8B_CONFIG)
+
+    seed = [make_seed_model(contextWindowTokensOverride=99999)]
+    previous = {"test-model": {"contextWindowTokens": 4096}}
+    result = build_catalog.build(seed, previous)
+
+    assert len(result.records) == 1
+    assert result.records[0]["contextWindowTokens"] == 99999
+    assert result.gaps == []
+
+
+def test_matching_context_window_raises_no_gap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: LLAMA_3_1_8B_CONFIG)
+
+    seed = [make_seed_model()]
+    previous = {"test-model": {"contextWindowTokens": 131072}}
+    result = build_catalog.build(seed, previous)
+
+    assert result.records[0]["contextWindowTokens"] == 131072
+    assert result.gaps == []
+
+
 def test_write_models_json_round_trips(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "models.json"
     path.write_text(

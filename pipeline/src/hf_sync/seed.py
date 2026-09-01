@@ -51,6 +51,16 @@ class SeedModel(BaseModel):
     contextWindowTokens: int | None = Field(default=None, gt=0)
     kvCacheBytesPerToken: float | None = Field(default=None, gt=0)
 
+    # Manual pin that always wins over a live HF pull, unlike the fallback
+    # above. Some repos' config.json reports a context length that doesn't
+    # match the model's documented/supported context window (a RoPE-scaling
+    # ceiling rather than the vendor-validated figure, or a value that
+    # requires a config change the vendor documents but doesn't ship by
+    # default) — see pipeline/gaps_report.txt when build_catalog flags one.
+    # Set this by hand after checking the model's actual HF README/model
+    # card, not config.json.
+    contextWindowTokensOverride: int | None = Field(default=None, gt=0)
+
     @model_validator(mode="after")
     def _check_consistency(self) -> SeedModel:
         if self.activeParametersB > self.totalParametersB:

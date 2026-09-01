@@ -67,18 +67,48 @@ def _load_previous_records() -> dict[str, dict[str, Any]]:
     return {record["id"]: record for record in envelope.get("data", [])}
 
 
-def _refresh_fields(seed_model: SeedModel) -> tuple[dict[str, Any], str | None]:
-    """Returns (field overrides from HF, pull-failure reason or None)."""
+def _refresh_fields(
+    seed_model: SeedModel, previous_record: dict[str, Any] | None
+) -> tuple[dict[str, Any], str | None, str | None]:
+    """Returns (field overrides from HF, pull-failure reason, divergence note).
+
+    All three of contextWindowTokensOverride, "matches previous", and
+    "no previous entry yet" resolve to using the freshly derived value with
+    no divergence note. Only a derived value that actually disagrees with
+    the previously committed one — and isn't pinned by an override — is
+    held back; see the contextWindowTokens branch below.
+    """
     try:
         config = fetch_config(seed_model.hfRepoId)
     except HfPullError as e:
-        return {}, str(e)
+        return {}, str(e), None
 
     arch = extract_architecture(config)
     overrides: dict[str, Any] = {}
+    divergence: str | None = None
 
     if arch.context_length:
-        overrides["contextWindowTokens"] = int(arch.context_length)
+        derived = int(arch.context_length)
+        previous_context = (previous_record or {}).get("contextWindowTokens")
+        if seed_model.contextWindowTokensOverride is not None:
+            overrides["contextWindowTokens"] = seed_model.contextWindowTokensOverride
+        elif previous_context is not None and previous_context != derived:
+            # config.json's max_position_embeddings (or equivalent) isn't
+            # always the vendor-documented context window — it can be a
+            # RoPE-scaling ceiling, or require a config change the vendor
+            # documents but doesn't ship by default. Don't silently trust a
+            # value that disagrees with what's already committed; keep the
+            # known-good one and ask a human to check the model's actual
+            # docs (not config.json) and set contextWindowTokensOverride.
+            overrides["contextWindowTokens"] = previous_context
+            divergence = (
+                f"HF config now derives contextWindowTokens={derived}, which disagrees with "
+                f"the committed value {previous_context}; kept {previous_context}. Verify "
+                "against the model's HF README/model card (not config.json) and set "
+                "contextWindowTokensOverride in models.seed.yaml to the confirmed value"
+            )
+        else:
+            overrides["contextWindowTokens"] = derived
 
     kv = kv_cache_bytes_per_token(arch)
     if kv is not None:
@@ -92,7 +122,7 @@ def _refresh_fields(seed_model: SeedModel) -> tuple[dict[str, Any], str | None]:
             seed_model.modelType,
         )
 
-    return overrides, None
+    return overrides, None, divergence
 
 
 def build(seed: list[SeedModel], previous: dict[str, dict[str, Any]]) -> BuildResult:
@@ -100,8 +130,11 @@ def build(seed: list[SeedModel], previous: dict[str, dict[str, Any]]) -> BuildRe
     gaps: list[Gap] = []
 
     for seed_model in seed:
-        base = seed_model.model_dump(exclude={"hfRepoId"}, exclude_none=True)
-        overrides, pull_failure = _refresh_fields(seed_model)
+        prior = previous.get(seed_model.id)
+        base = seed_model.model_dump(
+            exclude={"hfRepoId", "contextWindowTokensOverride"}, exclude_none=True
+        )
+        overrides, pull_failure, divergence = _refresh_fields(seed_model, prior)
         candidate = {**base, **overrides}
 
         issues = validate_record(candidate)
@@ -115,6 +148,8 @@ def build(seed: list[SeedModel], previous: dict[str, dict[str, Any]]) -> BuildRe
                         "carried-forward-stale",
                     )
                 )
+            elif divergence:
+                gaps.append(Gap(seed_model.id, divergence, "carried-forward-stale"))
             continue
 
         # Merged record is invalid — fall back to the previously committed
@@ -127,7 +162,6 @@ def build(seed: list[SeedModel], previous: dict[str, dict[str, Any]]) -> BuildRe
             if pull_failure
             else f"invalid merged record ({'; '.join(issues)})"
         )
-        prior = previous.get(seed_model.id)
         if prior is not None:
             records.append(prior)
             gaps.append(Gap(seed_model.id, reason, "carried-forward-stale"))

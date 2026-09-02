@@ -2,7 +2,8 @@
 
 For every model in the seed file:
   1. Pull its HF repo's config.json (cached under pipeline/.cache/hf_configs/).
-  2. Derive contextWindowTokens and kvCacheBytesPerToken from the architecture.
+  2. Derive contextWindowTokens, kvCacheBytesPerToken, and kvCacheFixedBytes
+     from the architecture.
   3. Merge those onto the seed's curated fields (capability tier, license,
      quantizations, etc. — never touched by this script).
   4. Validate the merged record against catalog_schema.validate_record.
@@ -29,7 +30,7 @@ from typing import Any
 
 from loguru import logger
 
-from hf_sync.architecture import extract_architecture, kv_cache_bytes_per_token
+from hf_sync.architecture import extract_architecture, kv_cache_model
 from hf_sync.catalog_schema import validate_record
 from hf_sync.hf_configs import HfPullError, fetch_config
 from hf_sync.seed import SeedModel, load_seed
@@ -69,23 +70,23 @@ def _load_previous_records() -> dict[str, dict[str, Any]]:
 
 def _refresh_fields(
     seed_model: SeedModel, previous_record: dict[str, Any] | None
-) -> tuple[dict[str, Any], str | None, str | None]:
-    """Returns (field overrides from HF, pull-failure reason, divergence note).
+) -> tuple[dict[str, Any], str | None, list[str]]:
+    """Returns (field overrides from HF, pull-failure reason, divergence notes).
 
-    All three of contextWindowTokensOverride, "matches previous", and
-    "no previous entry yet" resolve to using the freshly derived value with
-    no divergence note. Only a derived value that actually disagrees with
-    the previously committed one — and isn't pinned by an override — is
-    held back; see the contextWindowTokens branch below.
+    For both contextWindowTokens and kvCacheBytesPerToken: an override,
+    "matches previous", and "no previous entry yet" all resolve to using the
+    freshly derived value with no divergence note. Only a derived value that
+    actually disagrees with the previously committed one — and isn't pinned
+    by an override — is held back; see the two branches below.
     """
     try:
         config = fetch_config(seed_model.hfRepoId)
     except HfPullError as e:
-        return {}, str(e), None
+        return {}, str(e), []
 
     arch = extract_architecture(config)
     overrides: dict[str, Any] = {}
-    divergence: str | None = None
+    divergences: list[str] = []
 
     if arch.context_length:
         derived = int(arch.context_length)
@@ -101,7 +102,7 @@ def _refresh_fields(
             # known-good one and ask a human to check the model's actual
             # docs (not config.json) and set contextWindowTokensOverride.
             overrides["contextWindowTokens"] = previous_context
-            divergence = (
+            divergences.append(
                 f"HF config now derives contextWindowTokens={derived}, which disagrees with "
                 f"the committed value {previous_context}; kept {previous_context}. Verify "
                 "against the model's HF README/model card (not config.json) and set "
@@ -110,9 +111,51 @@ def _refresh_fields(
         else:
             overrides["contextWindowTokens"] = derived
 
-    kv = kv_cache_bytes_per_token(arch)
-    if kv is not None:
-        overrides["kvCacheBytesPerToken"] = kv
+    # kv_cache_model splits the KV-cache footprint into a per-token rate
+    # (bytes_per_token, scales with actual context length) and a fixed
+    # component (bytes_fixed, contributed by windowed/local-attention layers
+    # whose cache caps out at their window size). This is layer-type-aware
+    # for hybrid local/global-attention architectures (e.g. a sliding-window
+    # config) — see hf_sync.architecture.kv_cache_model — but a divergence
+    # can still surface a real upstream architecture change, or a
+    # layer_types convention the classifier doesn't yet recognize; either
+    # way, don't trust it silently.
+    kv_model = kv_cache_model(arch)
+    kv = kv_model.bytes_per_token if kv_model is not None else None
+    kv_fixed = kv_model.bytes_fixed if kv_model is not None else None
+    previous_kv = (previous_record or {}).get("kvCacheBytesPerToken")
+    previous_kv_fixed = (previous_record or {}).get("kvCacheFixedBytes")
+
+    if seed_model.kvCacheBytesPerTokenOverride is not None:
+        overrides["kvCacheBytesPerToken"] = seed_model.kvCacheBytesPerTokenOverride
+    elif kv is not None:
+        if previous_kv is not None and previous_kv != kv:
+            overrides["kvCacheBytesPerToken"] = previous_kv
+            divergences.append(
+                f"HF config now derives kvCacheBytesPerToken={kv}, which disagrees with "
+                f"the committed value {previous_kv}; kept {previous_kv}. Verify by hand and "
+                "set kvCacheBytesPerTokenOverride in models.seed.yaml to the confirmed value"
+            )
+        else:
+            overrides["kvCacheBytesPerToken"] = kv
+
+    if seed_model.kvCacheFixedBytesOverride is not None:
+        overrides["kvCacheFixedBytes"] = seed_model.kvCacheFixedBytesOverride
+    elif kv_fixed is not None:
+        if previous_kv_fixed is not None and previous_kv_fixed != kv_fixed:
+            overrides["kvCacheFixedBytes"] = previous_kv_fixed
+            divergences.append(
+                f"HF config now derives kvCacheFixedBytes={kv_fixed}, which disagrees with "
+                f"the committed value {previous_kv_fixed}; kept {previous_kv_fixed}. Verify by "
+                "hand and set kvCacheFixedBytesOverride in models.seed.yaml to the confirmed value"
+            )
+        elif kv_fixed != 0 or previous_kv_fixed is not None:
+            # Skip writing a zero fixed component for an ordinary
+            # (non-hybrid-attention) model — the field simply doesn't apply,
+            # rather than every homogeneous model in the catalog carrying an
+            # explicit kvCacheFixedBytes: 0. Still written when there's a
+            # previously-committed value to preserve (even a zero one).
+            overrides["kvCacheFixedBytes"] = kv_fixed
 
     if arch.is_moe != (seed_model.modelType == "moe"):
         logger.warning(
@@ -122,7 +165,7 @@ def _refresh_fields(
             seed_model.modelType,
         )
 
-    return overrides, None, divergence
+    return overrides, None, divergences
 
 
 def build(seed: list[SeedModel], previous: dict[str, dict[str, Any]]) -> BuildResult:
@@ -132,9 +175,15 @@ def build(seed: list[SeedModel], previous: dict[str, dict[str, Any]]) -> BuildRe
     for seed_model in seed:
         prior = previous.get(seed_model.id)
         base = seed_model.model_dump(
-            exclude={"hfRepoId", "contextWindowTokensOverride"}, exclude_none=True
+            exclude={
+                "hfRepoId",
+                "contextWindowTokensOverride",
+                "kvCacheBytesPerTokenOverride",
+                "kvCacheFixedBytesOverride",
+            },
+            exclude_none=True,
         )
-        overrides, pull_failure, divergence = _refresh_fields(seed_model, prior)
+        overrides, pull_failure, divergences = _refresh_fields(seed_model, prior)
         candidate = {**base, **overrides}
 
         issues = validate_record(candidate)
@@ -148,8 +197,8 @@ def build(seed: list[SeedModel], previous: dict[str, dict[str, Any]]) -> BuildRe
                         "carried-forward-stale",
                     )
                 )
-            elif divergence:
-                gaps.append(Gap(seed_model.id, divergence, "carried-forward-stale"))
+            for note in divergences:
+                gaps.append(Gap(seed_model.id, note, "carried-forward-stale"))
             continue
 
         # Merged record is invalid — fall back to the previously committed

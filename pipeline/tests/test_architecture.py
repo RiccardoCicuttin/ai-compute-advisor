@@ -12,7 +12,17 @@ formula produced itself.
 
 from __future__ import annotations
 
-from hf_sync.architecture import extract_architecture, kv_cache_bytes_per_token
+import json
+from pathlib import Path
+
+from hf_sync.architecture import extract_architecture, kv_cache_bytes_per_token, kv_cache_model
+
+CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache" / "hf_configs"
+
+
+def _load_cached_config(filename: str) -> dict[str, object]:
+    return json.loads((CACHE_DIR / filename).read_text(encoding="utf-8"))
+
 
 LLAMA_3_1_8B_CONFIG = {
     "architectures": ["LlamaForCausalLM"],
@@ -93,3 +103,83 @@ def test_nested_config_is_searched() -> None:
 def test_moe_detected_from_expert_count() -> None:
     arch = extract_architecture({**LLAMA_3_1_8B_CONFIG, "num_local_experts": 8})
     assert arch.is_moe is True
+
+
+def test_homogeneous_architecture_kv_cache_model_has_no_fixed_component() -> None:
+    # No layer_types/sliding_window in this config, so kv_cache_model must
+    # reduce to exactly the flat formula kv_cache_bytes_per_token computes —
+    # the two-term model must not change behavior for ordinary architectures.
+    arch = extract_architecture(LLAMA_3_1_70B_CONFIG)
+    model = kv_cache_model(arch)
+    assert model is not None
+    assert model.bytes_per_token == 327680
+    assert model.bytes_fixed == 0.0
+
+
+# google/gemma-4-31B-it's published config.json (pipeline/.cache/hf_configs/
+# google__gemma-4-31B-it.json): 60 layers, 5:1 sliding:full-attention ratio
+# (50 sliding, 10 full), sliding_window=1024, and — this is what the flat
+# formula misses — full-attention layers use a *different* head config
+# (num_global_key_value_heads=4, global_head_dim=512) than the sliding
+# layers (num_key_value_heads=16, head_dim=256).
+GEMMA_4_31B_CONFIG = _load_cached_config("google__gemma-4-31B-it.json")
+
+# google/gemma-4-26b-a4b-it (MoE): 30 layers, same 5:1 ratio (25 sliding, 5
+# full), sliding_window=1024, num_global_key_value_heads=2, global_head_dim=512.
+GEMMA_4_26B_A4B_CONFIG = _load_cached_config("google__gemma-4-26b-a4b-it.json")
+
+
+def test_gemma_4_31b_kv_cache_model_splits_linear_and_fixed_terms() -> None:
+    arch = extract_architecture(GEMMA_4_31B_CONFIG)
+    assert arch.layer_types is not None
+    assert arch.layer_types.count("full_attention") == 10
+    assert arch.layer_types.count("sliding_attention") == 50
+    assert arch.sliding_window == 1024
+
+    model = kv_cache_model(arch)
+    assert model is not None
+    # 10 full-attention layers * 4 global KV heads * 512 global head_dim:
+    # bytes/token = 2*10*4*512*2 = 81920 — the flat formula's own 983040
+    # figure (2*60*16*256*2, pricing every layer as full attention with the
+    # sliding layers' head config) overstates this by ~12x.
+    assert model.bytes_per_token == 81920
+    # 50 sliding-attention layers, capped at the 1024-token window:
+    # 2*50*16*256*2*1024 = 838860800 bytes (800 MiB), fixed regardless of
+    # how long the actual context is.
+    assert model.bytes_fixed == 838860800
+
+    # The flat (backward-compatible) accessor must still return only the
+    # linear component, not the old inflated whole-model value.
+    assert kv_cache_bytes_per_token(arch) == 81920
+
+
+def test_gemma_4_26b_a4b_kv_cache_model_splits_linear_and_fixed_terms() -> None:
+    arch = extract_architecture(GEMMA_4_26B_A4B_CONFIG)
+    assert arch.layer_types is not None
+    assert arch.layer_types.count("full_attention") == 5
+    assert arch.layer_types.count("sliding_attention") == 25
+    assert arch.sliding_window == 1024
+
+    model = kv_cache_model(arch)
+    assert model is not None
+    # 5 full-attention layers * 2 global KV heads * 512 global head_dim:
+    # bytes/token = 2*5*2*512*2 = 20480.
+    assert model.bytes_per_token == 20480
+    # 25 sliding-attention layers, capped at the 1024-token window:
+    # 2*25*8*256*2*1024 = 209715200 bytes (200 MiB).
+    assert model.bytes_fixed == 209715200
+
+
+def test_unclassifiable_layer_types_falls_back_to_homogeneous_formula() -> None:
+    # A layer_types value using a convention this catalog hasn't seen yet
+    # (neither "full"/"global" nor "sliding"/"local"/"window") must not be
+    # guessed at — fall back to treating every layer as full-attention,
+    # exactly like a config with no layer_types at all.
+    cfg = {**LLAMA_3_1_8B_CONFIG, "layer_types": ["mystery_attention"] * 32, "sliding_window": 4096}
+    arch = extract_architecture(cfg)
+    model = kv_cache_model(arch)
+    assert model is not None
+    assert model.bytes_fixed == 0.0
+    assert model.bytes_per_token == kv_cache_bytes_per_token(
+        extract_architecture(LLAMA_3_1_8B_CONFIG)
+    )

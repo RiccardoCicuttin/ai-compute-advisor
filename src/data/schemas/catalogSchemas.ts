@@ -306,6 +306,7 @@ const ModelRecordBaseSchema = z.strictObject({
     openWeight: z.boolean(),
     commercialUse: z.enum(["allowed", "restricted", "unknown"]),
     kvCacheBytesPerToken: positive.optional(),
+    kvCacheFixedBytes: nonNegative.optional(),
     notes: z.string().optional(),
   });
 

@@ -116,6 +116,47 @@ describe("pure calculation engine", () => {
     expect(result.recommendedVramGB).toBeCloseTo(58.836780976, 8);
   });
 
+  it("adds kvCacheFixedBytes as a per-user constant, independent of context length", () => {
+    // Models with hybrid local/global-attention layers (e.g. Gemma 3/4's
+    // sliding-window layers) contribute a fixed KV-cache cost that doesn't
+    // scale with peakContextTokens — only with concurrency.
+    const model: ModelRecord = {
+      id: "test-hybrid",
+      name: "Test Hybrid",
+      provider: "Test",
+      modelType: "dense",
+      totalParametersB: 30.7,
+      activeParametersB: 30.7,
+      contextWindowTokens: 262_144,
+      recommendedQuantizationId: "q4",
+      quantizations: [
+        { id: "q4", label: "4-bit", bitsPerParameter: 4, packingOverheadRatio: 0.05 },
+      ],
+      capabilityTierId: "advanced",
+      reasoning: false,
+      modalities: ["text"],
+      openWeight: true,
+      commercialUse: "allowed",
+      kvCacheBytesPerToken: 81_920,
+      kvCacheFixedBytes: 838_860_800,
+    };
+    const result = calculateVramRequirement({
+      model,
+      quantization: model.quantizations[0]!,
+      peakContextTokens: 8_192,
+      peakConcurrentUsers: 4,
+      assumptions: {
+        ...catalogs.assumptions.vram,
+        minimumRuntimeOverheadGB: 0,
+        defaultRuntimeOverheadRatio: 0.1,
+        safetyMarginRatio: 0.15,
+      },
+    });
+
+    // kvCacheGB = (8192 * 4 * 81920 + 4 * 838860800) / 1e9
+    expect(result.kvCacheGB).toBeCloseTo(6.03979776, 8);
+  });
+
   it("uses total parameters, never active parameters, for MoE weight", () => {
     const model = catalogs.models.find((candidate) => candidate.id === "mixtral-8x7b-instruct")!;
     const result = calculateVramRequirement({

@@ -38,8 +38,16 @@ export function calculateVramRequirement(input: VramInput): VramResult {
   if (kvCacheBytesPerToken === undefined) {
     throw new Error("No KV-cache fallback is configured for the selected model capability tier.");
   }
+  // Windowed/local-attention layers (e.g. Gemma 3/4's sliding-window
+  // layers) cap their KV cache at the layer's own window size instead of
+  // scaling with context length; kvCacheFixedBytes carries that constant
+  // contribution separately from the linear, per-token rate above. Each
+  // concurrent user still needs their own copy of it.
+  const kvCacheFixedGB =
+    ((input.model.kvCacheFixedBytes ?? 0) * input.peakConcurrentUsers) / 1_000_000_000;
   const kvCacheGB =
-    (input.peakContextTokens * input.peakConcurrentUsers * kvCacheBytesPerToken) / 1_000_000_000;
+    (input.peakContextTokens * input.peakConcurrentUsers * kvCacheBytesPerToken) / 1_000_000_000 +
+    kvCacheFixedGB;
   const runtimeOverheadGB = Math.max(
     input.assumptions.minimumRuntimeOverheadGB,
     modelWeightGB * input.assumptions.defaultRuntimeOverheadRatio,
@@ -73,6 +81,17 @@ export function calculateVramRequirement(input: VramInput): VramResult {
       intermediateValues: [
         value("modelWeight", "Model weight", modelWeightGB, "GB", "derived"),
         value("kvCache", "KV cache", kvCacheGB, "GB", kvCacheMethod === "model-data" ? "model-data" : "assumption"),
+        ...(kvCacheFixedGB > 0
+          ? [
+              value(
+                "kvCacheFixed",
+                "KV cache (windowed-attention layers, fixed)",
+                kvCacheFixedGB,
+                "GB",
+                "model-data" as const,
+              ),
+            ]
+          : []),
         value("runtime", "Runtime overhead", runtimeOverheadGB, "GB", "assumption"),
         value("safety", "Safety margin", safetyMarginGB, "GB", "assumption"),
       ],

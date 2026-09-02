@@ -17,6 +17,33 @@ LLAMA_3_1_8B_CONFIG = {
     "num_key_value_heads": 8,
 }
 
+# A small synthetic hybrid local/global-attention config (Gemma 3/4's
+# convention: layer_types + sliding_window, with a separate head config for
+# the full-attention layers) — 5 sliding-attention layers and 1 full
+# -attention layer, exercising the layer-aware kv_cache_model split rather
+# than the flat single-attention-type formula.
+HYBRID_ATTENTION_CONFIG = {
+    "hidden_size": 512,
+    "max_position_embeddings": 8192,
+    "num_attention_heads": 8,
+    "num_hidden_layers": 6,
+    "num_key_value_heads": 4,
+    "head_dim": 64,
+    "layer_types": [
+        "sliding_attention",
+        "sliding_attention",
+        "sliding_attention",
+        "sliding_attention",
+        "sliding_attention",
+        "full_attention",
+    ],
+    "sliding_window": 100,
+    "num_global_key_value_heads": 2,
+    "global_head_dim": 128,
+}
+# bytes_per_token = 2 * 1 full layer * 2 global KV heads * 128 global head_dim = 1024
+# bytes_fixed = 2 * 5 sliding layers * 4 KV heads * 64 head_dim * 100-token window = 512000
+
 
 def make_seed_model(**overrides: object) -> SeedModel:
     defaults: dict[str, object] = {
@@ -139,13 +166,140 @@ def test_diverging_context_window_is_held_back_and_flagged(
     assert len(result.records) == 1
     record = result.records[0]
     assert record["contextWindowTokens"] == 4096  # kept, not overwritten with 131072
-    assert (
-        record["kvCacheBytesPerToken"] == 131072
-    )  # unaffected — no divergence guard on this field
+    # previous fixture has no kvCacheBytesPerToken entry, so there's nothing
+    # to diverge from — the derived value is used as-is.
+    assert record["kvCacheBytesPerToken"] == 131072
     assert len(result.gaps) == 1
     assert result.gaps[0].action == "carried-forward-stale"
     assert "131072" in result.gaps[0].reason
     assert "4096" in result.gaps[0].reason
+
+
+def test_diverging_kv_cache_is_held_back_and_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    # config.json-derived kvCacheBytesPerToken disagrees with what's
+    # committed — must not silently overwrite.
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: LLAMA_3_1_8B_CONFIG)
+
+    seed = [make_seed_model()]
+    previous = {"test-model": {"contextWindowTokens": 131072, "kvCacheBytesPerToken": 983040}}
+    result = build_catalog.build(seed, previous)
+
+    assert len(result.records) == 1
+    record = result.records[0]
+    assert record["contextWindowTokens"] == 131072  # matches, unaffected
+    assert record["kvCacheBytesPerToken"] == 983040  # kept, not overwritten with 131072
+    assert len(result.gaps) == 1
+    assert result.gaps[0].action == "carried-forward-stale"
+    assert "131072" in result.gaps[0].reason
+    assert "983040" in result.gaps[0].reason
+
+
+def test_kv_cache_override_wins_over_derived_and_previous(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: LLAMA_3_1_8B_CONFIG)
+
+    seed = [make_seed_model(kvCacheBytesPerTokenOverride=55555)]
+    previous = {"test-model": {"contextWindowTokens": 131072, "kvCacheBytesPerToken": 983040}}
+    result = build_catalog.build(seed, previous)
+
+    assert len(result.records) == 1
+    assert result.records[0]["kvCacheBytesPerToken"] == 55555
+    assert result.gaps == []
+
+
+def test_matching_kv_cache_raises_no_gap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: LLAMA_3_1_8B_CONFIG)
+
+    seed = [make_seed_model()]
+    previous = {"test-model": {"contextWindowTokens": 131072, "kvCacheBytesPerToken": 131072}}
+    result = build_catalog.build(seed, previous)
+
+    assert result.records[0]["kvCacheBytesPerToken"] == 131072
+    assert result.gaps == []
+
+
+def test_hybrid_attention_architecture_splits_kv_cache_into_linear_and_fixed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: HYBRID_ATTENTION_CONFIG)
+
+    seed = [make_seed_model()]
+    result = build_catalog.build(seed, previous={})
+
+    assert result.gaps == []
+    assert len(result.records) == 1
+    record = result.records[0]
+    assert record["kvCacheBytesPerToken"] == 1024
+    assert record["kvCacheFixedBytes"] == 512000
+
+
+def test_homogeneous_architecture_omits_kv_cache_fixed_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # No layer_types/sliding_window in this config, so there's no fixed
+    # component to report — the field shouldn't appear at all rather than
+    # every ordinary model carrying an explicit kvCacheFixedBytes: 0.
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: LLAMA_3_1_8B_CONFIG)
+
+    seed = [make_seed_model()]
+    result = build_catalog.build(seed, previous={})
+
+    assert "kvCacheFixedBytes" not in result.records[0]
+
+
+def test_diverging_kv_cache_fixed_bytes_is_held_back_and_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: HYBRID_ATTENTION_CONFIG)
+
+    seed = [make_seed_model()]
+    previous = {
+        "test-model": {
+            "contextWindowTokens": 8192,
+            "kvCacheBytesPerToken": 1024,
+            "kvCacheFixedBytes": 999,
+        }
+    }
+    result = build_catalog.build(seed, previous)
+
+    assert len(result.records) == 1
+    record = result.records[0]
+    assert record["kvCacheBytesPerToken"] == 1024  # matches, unaffected
+    assert record["kvCacheFixedBytes"] == 999  # kept, not overwritten with 512000
+    assert len(result.gaps) == 1
+    assert result.gaps[0].action == "carried-forward-stale"
+    assert "512000" in result.gaps[0].reason
+    assert "999" in result.gaps[0].reason
+
+
+def test_kv_cache_fixed_bytes_override_wins_over_derived_and_previous(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: HYBRID_ATTENTION_CONFIG)
+
+    seed = [make_seed_model(kvCacheFixedBytesOverride=7)]
+    previous = {"test-model": {"contextWindowTokens": 8192, "kvCacheFixedBytes": 999}}
+    result = build_catalog.build(seed, previous)
+
+    assert len(result.records) == 1
+    assert result.records[0]["kvCacheFixedBytes"] == 7
+    assert result.gaps == []
+
+
+def test_matching_kv_cache_fixed_bytes_raises_no_gap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: HYBRID_ATTENTION_CONFIG)
+
+    seed = [make_seed_model()]
+    previous = {
+        "test-model": {
+            "contextWindowTokens": 8192,
+            "kvCacheBytesPerToken": 1024,
+            "kvCacheFixedBytes": 512000,
+        }
+    }
+    result = build_catalog.build(seed, previous)
+
+    assert result.records[0]["kvCacheFixedBytes"] == 512000
+    assert result.gaps == []
 
 
 def test_context_window_override_wins_over_derived_and_previous(

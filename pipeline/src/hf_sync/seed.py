@@ -50,6 +50,7 @@ class SeedModel(BaseModel):
     # overwritten in the seed file itself.
     contextWindowTokens: int | None = Field(default=None, gt=0)
     kvCacheBytesPerToken: float | None = Field(default=None, gt=0)
+    kvCacheFixedBytes: float | None = Field(default=None, ge=0)
 
     # Manual pin that always wins over a live HF pull, unlike the fallback
     # above. Some repos' config.json reports a context length that doesn't
@@ -60,6 +61,15 @@ class SeedModel(BaseModel):
     # Set this by hand after checking the model's actual HF README/model
     # card, not config.json.
     contextWindowTokensOverride: int | None = Field(default=None, gt=0)
+
+    # Same escape hatch as contextWindowTokensOverride, for kvCacheBytesPerToken
+    # and kvCacheFixedBytes. build_catalog.py derives both from the model's HF
+    # config via hf_sync.architecture.kv_cache_model, which is layer-type-aware
+    # for hybrid local/global-attention architectures (e.g. a config with a
+    # sliding_window and a per-layer layer_types split); set these by hand only
+    # if that derivation needs correcting.
+    kvCacheBytesPerTokenOverride: float | None = Field(default=None, gt=0)
+    kvCacheFixedBytesOverride: float | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _check_consistency(self) -> SeedModel:

@@ -96,6 +96,13 @@ def validate_record(record: dict[str, object]) -> list[str]:
             "kvCacheBytesPerToken: must be > 0 when present",
         )
 
+    kv_fixed = record.get("kvCacheFixedBytes")
+    if kv_fixed is not None:
+        require(
+            isinstance(kv_fixed, (int, float)) and kv_fixed >= 0,
+            "kvCacheFixedBytes: must be >= 0 when present",
+        )
+
     max_output = record.get("maxOutputTokens")
     if max_output is not None:
         require(

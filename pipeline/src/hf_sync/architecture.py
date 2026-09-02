@@ -37,6 +37,17 @@ FIELD_CANDIDATES: dict[str, list[str]] = {
         "moe_num_experts",
         "num_experts_total",
     ],
+    # Per-layer attention-type list for hybrid local/global-attention models
+    # (Gemma 3/4's config.json spells it "layer_types"; no other spelling has
+    # been observed in this catalog's repos yet — add one here, not guessed,
+    # once a config using a different key turns up).
+    "layer_types": ["layer_types"],
+    "sliding_window": ["sliding_window"],
+    # Full/global-attention layers can use a different head count/dim than
+    # the windowed layers (Gemma splits these); absent in configs that don't
+    # make that split, in which case the windowed-layer config is reused.
+    "global_n_heads_kv": ["num_global_key_value_heads"],
+    "global_head_dim": ["global_head_dim"],
 }
 
 NESTED_CONFIG_KEYS = (
@@ -65,6 +76,14 @@ def _as_int(value: object) -> int | None:
     return int(value) if isinstance(value, (int, float)) else None
 
 
+def _as_layer_types(value: object) -> tuple[str, ...] | None:
+    if not isinstance(value, list) or not value:
+        return None
+    if not all(isinstance(item, str) for item in value):
+        return None
+    return tuple(value)
+
+
 @dataclass(frozen=True)
 class Architecture:
     n_layers: int | None
@@ -74,6 +93,10 @@ class Architecture:
     head_dim: int | None
     context_length: int | None
     is_moe: bool
+    layer_types: tuple[str, ...] | None
+    sliding_window: int | None
+    global_n_heads_kv: int | None
+    global_head_dim: int | None
 
     @property
     def effective_kv_heads(self) -> int | None:
@@ -100,13 +123,67 @@ def extract_architecture(cfg: dict[str, object]) -> Architecture:
         head_dim=_as_int(values["head_dim"]),
         context_length=_as_int(values["context_length"]),
         is_moe=values["n_experts"] is not None,
+        layer_types=_as_layer_types(values["layer_types"]),
+        sliding_window=_as_int(values["sliding_window"]),
+        global_n_heads_kv=_as_int(values["global_n_heads_kv"]),
+        global_head_dim=_as_int(values["global_head_dim"]),
     )
 
 
-def kv_cache_bytes_per_token(arch: Architecture, bytes_per_element: float = 2.0) -> float | None:
-    """KV-cache footprint per token, per model, in bytes.
+def _classify_layer_types(layer_types: tuple[str, ...] | None) -> tuple[int, int] | None:
+    """Splits a per-layer attention-type list into (n_windowed, n_unwindowed).
 
-    One K vector and one V vector are cached per layer per KV head:
+    Classification is by substring, not an exact enum: HF config families
+    spell this differently (Gemma's layer_types uses "full_attention" /
+    "sliding_attention"). A type containing "full" or "global" is unwindowed
+    (attends over the whole context); one containing "sliding", "local", or
+    "window" is windowed (its KV cache caps out at the model's window size).
+    Any entry that matches neither means this config's convention isn't
+    understood yet, and the whole list is treated as unclassifiable — the
+    caller must fall back to the homogeneous-architecture formula rather
+    than guess.
+    """
+    if layer_types is None:
+        return None
+    n_windowed = 0
+    n_unwindowed = 0
+    for layer_type in layer_types:
+        lowered = layer_type.lower()
+        if "full" in lowered or "global" in lowered:
+            n_unwindowed += 1
+        elif "sliding" in lowered or "local" in lowered or "window" in lowered:
+            n_windowed += 1
+        else:
+            return None
+    return n_windowed, n_unwindowed
+
+
+@dataclass(frozen=True)
+class KvCacheModel:
+    """KV-cache footprint decomposed by whether it scales with context length.
+
+    bytes_per_token scales linearly with the actual context length in use —
+    contributed only by layers that attend over the whole sequence.
+    bytes_fixed is a constant, contributed by windowed (sliding/local
+    -attention) layers: their cache caps out at the layer's own window size
+    and stops growing once context exceeds it, so it does not belong in a
+    per-token rate.
+
+    For an architecture with no detected windowed/unwindowed split,
+    bytes_fixed is 0 and bytes_per_token is exactly the flat formula below —
+    homogeneous architectures (the common case) are computed identically to
+    before this model existed.
+    """
+
+    bytes_per_token: float
+    bytes_fixed: float
+
+
+def kv_cache_model(arch: Architecture, bytes_per_element: float = 2.0) -> KvCacheModel | None:
+    """KV-cache footprint per model, split into a linear and a fixed term.
+
+    Homogeneous case — every layer attends over the full context, one K and
+    one V vector cached per layer per KV head:
         bytes/token = 2 (K and V) * n_layers * n_kv_heads * head_dim * bytes_per_element
 
     bytes_per_element defaults to 2 (bf16/fp16), matching this catalog's
@@ -114,11 +191,21 @@ def kv_cache_bytes_per_token(arch: Architecture, bytes_per_element: float = 2.0)
     quantization (see AGENTS.md: fit is derived from weights plus configured
     KV-cache/runtime/safety overhead).
 
+    The homogeneous formula overstates the true cost for hybrid local/global
+    -attention architectures (e.g. Gemma 3/4's config, which interleaves a
+    minority of full-attention layers among sliding-window layers capped at
+    a small window): it prices every layer as if it were full-attention over
+    the entire context. When the config exposes a classifiable layer_types
+    split and a sliding_window size, this instead prices:
+      - unwindowed (full/global) layers as a per-token rate, using their own
+        head config when the config splits one out (Gemma's
+        num_global_key_value_heads/global_head_dim), else the regular one;
+      - windowed layers as a one-time cost capped at sliding_window tokens,
+        using the regular head config.
+
     Validated against the two dense Llama 3.1 entries already committed to
-    public/data/models.json (see tests/test_architecture.py): both reproduce
-    the catalog's existing kvCacheBytesPerToken values exactly from their
-    published HF configs, which is the strongest evidence available that the
-    formula and byte convention match this app's authoring practice.
+    public/data/models.json, and against Gemma 4's own published configs —
+    see tests/test_architecture.py for both.
 
     Returns None when the config doesn't expose enough architecture fields
     to compute it (e.g. n_layers or head_dim missing) — callers must treat
@@ -128,4 +215,29 @@ def kv_cache_bytes_per_token(arch: Architecture, bytes_per_element: float = 2.0)
     head_dim = arch.effective_head_dim
     if arch.n_layers is None or kv_heads is None or head_dim is None:
         return None
-    return 2 * arch.n_layers * kv_heads * head_dim * bytes_per_element
+
+    classification = _classify_layer_types(arch.layer_types)
+    if classification is None or arch.sliding_window is None:
+        return KvCacheModel(
+            bytes_per_token=2 * arch.n_layers * kv_heads * head_dim * bytes_per_element,
+            bytes_fixed=0.0,
+        )
+
+    n_windowed, n_unwindowed = classification
+    global_kv_heads = arch.global_n_heads_kv if arch.global_n_heads_kv is not None else kv_heads
+    global_head_dim = arch.global_head_dim if arch.global_head_dim is not None else head_dim
+
+    bytes_per_token = 2 * n_unwindowed * global_kv_heads * global_head_dim * bytes_per_element
+    bytes_fixed = 2 * n_windowed * kv_heads * head_dim * bytes_per_element * arch.sliding_window
+    return KvCacheModel(bytes_per_token=bytes_per_token, bytes_fixed=bytes_fixed)
+
+
+def kv_cache_bytes_per_token(arch: Architecture, bytes_per_element: float = 2.0) -> float | None:
+    """Backward-compatible accessor for just the context-scaling component.
+
+    Equal to kv_cache_model(arch, bytes_per_element).bytes_per_token; see
+    that function for the full model, including the fixed component that
+    hybrid-attention architectures need and this alone can't represent.
+    """
+    model = kv_cache_model(arch, bytes_per_element)
+    return model.bytes_per_token if model is not None else None

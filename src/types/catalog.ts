@@ -95,6 +95,13 @@ export interface ModelRecord {
   openWeight: boolean;
   commercialUse: "allowed" | "restricted" | "unknown";
   kvCacheBytesPerToken?: number;
+  /**
+   * Constant KV-cache bytes contributed by windowed/local-attention layers
+   * (e.g. Gemma 3/4's sliding-window layers), whose cache caps out at the
+   * layer's own window size and stops growing with context length. Absent
+   * for architectures without a local/global attention split.
+   */
+  kvCacheFixedBytes?: number;
   notes?: string;
 }
 

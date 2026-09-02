@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "catalogId": "models",
-  "lastUpdated": "2026-09-01",
+  "lastUpdated": "2026-09-02",
   "source": {
     "label": "Artificial Analysis open-model index (family discovery)",
     "url": "https://artificialanalysis.ai/models/open-source",
@@ -251,7 +251,8 @@
       "commercialUse": "allowed",
       "notes": "Multimodal Gemma 4 workstation model. Specs and Apache 2.0 license: official Google Gemma 4 model card. Fit is calculated from weights plus configured KV/runtime/safety overhead; it does not verify runtime compatibility or TPS. Audio support depends on the selected checkpoint and runtime.",
       "contextWindowTokens": 262144,
-      "kvCacheBytesPerToken": 393216.0
+      "kvCacheBytesPerToken": 16384.0,
+      "kvCacheFixedBytes": 335544320.0
     },
     {
       "id": "phi-4-14b",
@@ -366,7 +367,8 @@
       "commercialUse": "allowed",
       "notes": "Officially released in native MXFP4 and described by OpenAI as runnable within 16GB memory. Specs and Apache 2.0 license: OpenAI gpt-oss model card. Calculator fit adds conservative KV/runtime/safety overhead, so its recommended capacity can exceed the publisher's minimum. No local TPS is assumed.",
       "contextWindowTokens": 131072,
-      "kvCacheBytesPerToken": 49152.0
+      "kvCacheBytesPerToken": 24576.0,
+      "kvCacheFixedBytes": 3145728.0
     },
     {
       "id": "mistral-small-3.1-24b-instruct",
@@ -492,7 +494,8 @@
       "commercialUse": "allowed",
       "notes": "Gemma 4 MoE workstation model; the A4B label rounds the official 3.8B active out of 25.2B total parameters. Specs and Apache 2.0 license: official Google Gemma 4 model card. Fit uses total weights, not active parameters, plus configured overhead; it does not verify runtime compatibility or TPS.",
       "contextWindowTokens": 262144,
-      "kvCacheBytesPerToken": 245760.0
+      "kvCacheBytesPerToken": 20480.0,
+      "kvCacheFixedBytes": 209715200.0
     },
     {
       "id": "gemma-4-31b-it",
@@ -534,7 +537,8 @@
       "commercialUse": "allowed",
       "notes": "Largest dense Gemma 4 workstation option. Specs and Apache 2.0 license: official google/gemma-4-31B model card. Fit is calculated from weights plus configured KV/runtime/safety overhead; it does not verify runtime compatibility or TPS.",
       "contextWindowTokens": 262144,
-      "kvCacheBytesPerToken": 983040.0
+      "kvCacheBytesPerToken": 81920.0,
+      "kvCacheFixedBytes": 838860800.0
     },
     {
       "id": "deepseek-r1-distill-qwen-32b",
@@ -728,7 +732,8 @@
       "commercialUse": "allowed",
       "notes": "Officially released in native MXFP4 and described by OpenAI as runnable on a single 80GB GPU. Specs and Apache 2.0 license: OpenAI gpt-oss model card. Calculator fit adds configured KV/runtime/safety overhead and therefore targets a 96GB-class envelope at moderate context; no local TPS is assumed.",
       "contextWindowTokens": 131072,
-      "kvCacheBytesPerToken": 73728.0
+      "kvCacheBytesPerToken": 36864.0,
+      "kvCacheFixedBytes": 4718592.0
     },
     {
       "id": "qwen3-235b-a22b",

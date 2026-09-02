@@ -771,6 +771,47 @@
       "kvCacheBytesPerToken": 192512.0
     },
     {
+      "id": "qwen3-30b-a3b-instruct-2507",
+      "name": "Qwen3 30B A3B Instruct 2507",
+      "provider": "Qwen",
+      "family": "Qwen3",
+      "modelType": "moe",
+      "totalParametersB": 30.5,
+      "activeParametersB": 3.3,
+      "maxOutputTokens": 16384,
+      "recommendedQuantizationId": "q4",
+      "quantizations": [
+        {
+          "id": "q4",
+          "label": "4-bit",
+          "bitsPerParameter": 4.0,
+          "packingOverheadRatio": 0.06
+        },
+        {
+          "id": "q8",
+          "label": "8-bit",
+          "bitsPerParameter": 8.0,
+          "packingOverheadRatio": 0.04
+        },
+        {
+          "id": "bf16",
+          "label": "BF16",
+          "bitsPerParameter": 16.0,
+          "packingOverheadRatio": 0.0
+        }
+      ],
+      "capabilityTierId": "advanced",
+      "reasoning": false,
+      "modalities": [
+        "text"
+      ],
+      "openWeight": true,
+      "commercialUse": "allowed",
+      "notes": "Non-thinking instruct release; about 3.3B of 30.5B parameters activate per token. Specs and Apache 2.0 license: official Qwen/Qwen3-30B-A3B-Instruct-2507 model card. Fit uses total weights, not active parameters, plus configured overhead; it does not verify runtime compatibility or TPS.",
+      "contextWindowTokens": 262144,
+      "kvCacheBytesPerToken": 98304.0
+    },
+    {
       "id": "deepseek-r1-671b",
       "name": "DeepSeek-R1 671B",
       "provider": "DeepSeek",

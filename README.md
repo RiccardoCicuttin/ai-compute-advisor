@@ -52,28 +52,33 @@ npm run check
 | Field group | Source | Edited by |
 |---|---|---|
 | Capability tier, license, commercial-use terms, quantization presets, display name, notes | `pipeline/models.seed.yaml` | A human, by hand |
-| `contextWindowTokens`, `kvCacheBytesPerToken` | Each model's live Hugging Face `config.json` | The pipeline, automatically |
+| `contextWindowTokens`, `kvCacheBytesPerToken`, `kvCacheFixedBytes` | Each model's live Hugging Face `config.json` | The pipeline, automatically |
 
 ### What's automated
 
 A weekly GitHub Actions workflow (`.github/workflows/sync-models.yml`, Mondays 06:00 UTC, or manual dispatch):
 
 1. Installs the pipeline (`uv sync --project pipeline`) and runs its own lint/type/test suite.
-2. Runs `python -m hf_sync.build_catalog`: for every model in `models.seed.yaml`, pulls `config.json` from its Hugging Face repo, derives `contextWindowTokens` and `kvCacheBytesPerToken` from the architecture, and merges those onto the curated seed fields.
+2. Runs `python -m hf_sync.build_catalog`: for every model in `models.seed.yaml`, pulls `config.json` from its Hugging Face repo, derives `contextWindowTokens` and the KV-cache footprint from the architecture, and merges those onto the curated seed fields.
 3. Re-validates the regenerated `models.json` against the app's own schema (`npm run lint && npm test && npm run build`) — this is the real gate, not the pipeline's own Python-side check.
 4. If anything changed, opens a pull request with the diff and attaches `pipeline/gaps_report.txt` (see below) so a reviewer sees exactly what moved and why.
 
 A model whose Hugging Face pull fails, or whose merged record fails validation, is never dropped or zeroed out — its previously committed entry is carried forward unchanged, and the reason is logged to `gaps_report.txt`. Nothing fails silently; a stale or misspelled `hfRepoId` shows up as a reported gap, not a missing or broken model.
 
+**KV-cache footprint** (`kvCacheBytesPerToken`, plus `kvCacheFixedBytes` where it applies) is derived per-architecture, not a flat multiplier. Most models attend over the full context on every layer, so their KV cache is purely linear in tokens (`kvCacheBytesPerToken` only, `kvCacheFixedBytes` omitted). Hybrid local/global-attention architectures — Gemma 3/4 and gpt-oss are examples already in the catalog — cap most layers at a small sliding window and run only a minority over the full context. For those, the pipeline splits the estimate into a linear term (`kvCacheBytesPerToken`, from the full-attention layers) plus a fixed term (`kvCacheFixedBytes`, from the windowed layers, capped at the window size) instead of overstating the whole cache as linear. See `kv_cache_model()` in `pipeline/src/hf_sync/architecture.py` for the formula.
+
+**Divergence guard**: if a freshly-derived `contextWindowTokens`, `kvCacheBytesPerToken`, or `kvCacheFixedBytes` disagrees with the value already committed in `models.json`, the pipeline does not silently overwrite it — it keeps the committed value and logs the disagreement to `gaps_report.txt` for a human to review. To force a specific value regardless of what the pipeline derives, set the matching field in `models.seed.yaml`: `contextWindowTokensOverride`, `kvCacheBytesPerTokenOverride`, or `kvCacheFixedBytesOverride`. An override always wins and is never reported as a gap.
+
 ### What's manual
 
-To add, remove, or re-describe a tracked model, edit `pipeline/models.seed.yaml` by hand. Every field there except the two architecture-derived ones above is editorial and is never touched by the pipeline:
+To add, remove, or re-describe a tracked model, edit `pipeline/models.seed.yaml` by hand. Every field there except the architecture-derived ones above is editorial and is never touched by the pipeline:
 
 - `id`, `hfRepoId`, `name`, `provider`, `family`
 - `totalParametersB`, `activeParametersB`, `modelType` (`dense`/`moe`)
 - `capabilityTierId`, `reasoning`, `modalities`, `openWeight`, `commercialUse`
 - `recommendedQuantizationId` and the `quantizations` list
 - `notes`
+- Optionally, `contextWindowTokensOverride`, `kvCacheBytesPerTokenOverride`, `kvCacheFixedBytesOverride` — force a specific derived value when the divergence guard is holding back a value you know is correct (see above)
 
 A new model needs every field filled in — the pipeline won't invent capability tier, license, or quantization data on your behalf. `hfRepoId` must be a real, correctly spelled Hugging Face repo id, or the sync will just log a gap and carry the previous entry forward (or exclude the model outright if there is no previous entry).
 
@@ -120,8 +125,12 @@ AI Compute Advisor 是面向售前的模型与设备部署顾问。它支持从�
 
 `public/data/models.json` 是**自动生成的文件**，请勿手工编辑。它由 `pipeline/`（一个名为 `hf_sync` 的小型 Python 任务）合并两类数据生成：
 
-- **人工维护**（`pipeline/models.seed.yaml`）：能力分级、许可证、商用条款、量化档位、显示名称、备注等编辑性字段。新增模型时必须手动填写全部字段，包括正确拼写的 `hfRepoId`；流水线不会替你猜测能力分级或许可证。
-- **自动同步**：`contextWindowTokens` 与 `kvCacheBytesPerToken` 来自模型在 Hugging Face 上的实时 `config.json`，由每周一 06:00 UTC 运行的 GitHub Actions 工作流（`.github/workflows/sync-models.yml`，也可手动触发）拉取、推导并合并到人工字段之上，再用 `npm run lint && npm test && npm run build` 做最终校验，通过后自动开 PR。
+- **人工维护**（`pipeline/models.seed.yaml`）：能力分级、许可证、商用条款、量化档位、显示名称、备注等编辑性字段。新增模型时必须手动填写全部字段，包括正确拼写的 `hfRepoId`；流水线不会替你猜测能力分级或许可证。此外还可以按需添加 `contextWindowTokensOverride`、`kvCacheBytesPerTokenOverride`、`kvCacheFixedBytesOverride`——当自动推导值被下方的“分歧保护”拦截、而你确认新值才是对的时，用它强制覆盖。
+- **自动同步**：`contextWindowTokens`、`kvCacheBytesPerToken`（以及适用时的 `kvCacheFixedBytes`）来自模型在 Hugging Face 上的实时 `config.json`，由每周一 06:00 UTC 运行的 GitHub Actions 工作流（`.github/workflows/sync-models.yml`，也可手动触发）拉取、推导并合并到人工字段之上，再用 `npm run lint && npm test && npm run build` 做最终校验，通过后自动开 PR。
+
+KV 缓存占用的推导按架构而定，不是固定倍数。多数模型每一层都对全部上下文做注意力计算，因此其 KV 缓存与 token 数量成线性关系（只有 `kvCacheBytesPerToken`，不含 `kvCacheFixedBytes`）。像 Gemma 3/4、gpt-oss 这类混合局部/全局注意力架构，大部分层只在一个较小的滑动窗口内计算注意力，只有少数层覆盖全部上下文；针对这类模型，流水线把估算拆成线性项（`kvCacheBytesPerToken`，来自全注意力层）加固定项（`kvCacheFixedBytes`，来自窗口层，按窗口大小封顶），而不是把整个缓存都按线性处理导致高估。具体公式见 `pipeline/src/hf_sync/architecture.py` 中的 `kv_cache_model()`。
+
+**分歧保护**：如果新推导出的 `contextWindowTokens`、`kvCacheBytesPerToken` 或 `kvCacheFixedBytes` 与 `models.json` 中已提交的值不一致，流水线不会静默覆盖——会保留已提交的值，并把分歧记录到 `gaps_report.txt` 供人工复核。如需强制使用某个值，可在 `models.seed.yaml` 中设置对应的 override 字段，override 的值始终优先生效，且不会被记为 gap。
 
 某个模型的 Hugging Face 拉取失败或合并后校验不通过时，不会被清零或从目录中移除——会保留上一次提交的记录，并把原因写入 `pipeline/gaps_report.txt`，不会静默失败。
 

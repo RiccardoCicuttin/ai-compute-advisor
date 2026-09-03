@@ -258,16 +258,84 @@ def test_kv_cache_model_refuses_to_guess_for_novel_architecture() -> None:
     assert kv_cache_bytes_per_token(arch) is None
 
 
-def test_unclassifiable_layer_types_falls_back_to_homogeneous_formula() -> None:
+def test_unclassifiable_layer_types_refuses_to_guess() -> None:
     # A layer_types value using a convention this catalog hasn't seen yet
     # (neither "full"/"global" nor "sliding"/"local"/"window") must not be
-    # guessed at — fall back to treating every layer as full-attention,
-    # exactly like a config with no layer_types at all.
+    # guessed at — refuse rather than silently pricing every layer as
+    # full-attention, since that can be wrong in either direction.
     cfg = {**LLAMA_3_1_8B_CONFIG, "layer_types": ["mystery_attention"] * 32, "sliding_window": 4096}
     arch = extract_architecture(cfg)
-    model = kv_cache_model(arch)
-    assert model is not None
-    assert model.bytes_fixed == 0.0
-    assert model.bytes_per_token == kv_cache_bytes_per_token(
-        extract_architecture(LLAMA_3_1_8B_CONFIG)
-    )
+    assert kv_cache_model(arch) is None
+    assert kv_cache_bytes_per_token(arch) is None
+
+
+def test_windowed_layer_types_without_sliding_window_refuses_to_guess() -> None:
+    # layer_types classifies fine (a recognized "sliding" layer is present)
+    # but there's no sliding_window value to cap its fixed cost at — can't
+    # safely compute bytes_fixed, so this must refuse rather than guess.
+    cfg = {
+        **LLAMA_3_1_8B_CONFIG,
+        "layer_types": ["full_attention"] * 16 + ["sliding_attention"] * 16,
+    }
+    arch = extract_architecture(cfg)
+    assert arch.sliding_window is None
+    assert kv_cache_model(arch) is None
+
+
+# Qwen/Qwen3.5-9B's published config.json (pipeline/.cache/hf_configs/
+# Qwen__Qwen3.5-9B.json): a Gated-DeltaNet-style hybrid where most layers use
+# recurrent "linear_attention" (a fixed-size state, not a per-token-growing
+# K/V cache) and only every 4th layer is real "full_attention". Neither
+# _classify_layer_types (which doesn't recognize "linear_attention") nor the
+# standard/MLA formulas model this shape yet.
+QWEN_3_5_9B_CONFIG = _load_cached_config("Qwen__Qwen3.5-9B.json")
+
+
+def test_linear_attention_fields_detected_as_novel_architecture() -> None:
+    arch = extract_architecture(QWEN_3_5_9B_CONFIG)
+    assert {
+        "linear_conv_kernel_dim",
+        "linear_key_head_dim",
+        "linear_num_key_heads",
+        "linear_value_head_dim",
+    }.issubset(arch.novel_architecture_fields)
+
+
+def test_kv_cache_model_refuses_to_guess_for_linear_attention_hybrid() -> None:
+    # Even though this config's layer_types would otherwise fall through to
+    # "unclassifiable, refuse" anyway, the novel-architecture signal must
+    # catch it first — the same field family recognized regardless of
+    # whether a given model happens to also expose layer_types.
+    arch = extract_architecture(QWEN_3_5_9B_CONFIG)
+    assert kv_cache_model(arch) is None
+    assert kv_cache_bytes_per_token(arch) is None
+
+
+# meta-llama/Llama-4-Scout-17B-16E-Instruct's published config.json
+# (pipeline/.cache/hf_configs/meta-llama__Llama-4-Scout-17B-16E-Instruct.json):
+# chunked local attention (attention_chunk_size) interleaved with occasional
+# NoPE/global layers (no_rope_layers) — a different hybrid shape than Gemma's
+# layer_types split, not expressed via layer_types/sliding_window at all, so
+# nothing in the standard formula's field set can see it.
+LLAMA_4_SCOUT_CONFIG = _load_cached_config("meta-llama__Llama-4-Scout-17B-16E-Instruct.json")
+
+
+def test_chunked_attention_fields_detected_as_novel_architecture() -> None:
+    arch = extract_architecture(LLAMA_4_SCOUT_CONFIG)
+    assert set(arch.novel_architecture_fields) == {"attention_chunk_size", "no_rope_layers"}
+
+
+def test_kv_cache_model_refuses_to_guess_for_chunked_attention_hybrid() -> None:
+    arch = extract_architecture(LLAMA_4_SCOUT_CONFIG)
+    assert kv_cache_model(arch) is None
+    assert kv_cache_bytes_per_token(arch) is None
+
+
+def test_mamba_prefix_alone_is_a_novel_architecture_signal() -> None:
+    # Not an exact match against NOVEL_ARCHITECTURE_SIGNAL_FIELDS and not the
+    # ssm_ prefix either — only the mamba_ prefix rule catches this, the same
+    # shape as Qwen3.5/3.6's real "mamba_ssm_dtype" field.
+    cfg = {**LLAMA_3_1_8B_CONFIG, "mamba_ssm_dtype": "float32"}
+    arch = extract_architecture(cfg)
+    assert arch.novel_architecture_fields == ("mamba_ssm_dtype",)
+    assert kv_cache_model(arch) is None

@@ -65,13 +65,24 @@ NESTED_CONFIG_KEYS = (
     "decoder_config",
 )
 
-# Fields that signal a state-space/Mamba-family architecture (or any other
-# architecture we haven't built a kv_cache_model() formula for yet). Unlike
+# Fields that signal a state-space/Mamba-family architecture, a linear/
+# recurrent-attention hybrid (e.g. Qwen3-Next/3.5/3.6's Gated DeltaNet-style
+# layers, whose config carries linear_key_head_dim/linear_num_key_heads/
+# linear_value_head_dim/linear_conv_kernel_dim), a chunked-local + NoPE
+# hybrid (Llama 4's attention_chunk_size/no_rope_layers), or any other
+# architecture we haven't built a kv_cache_model() formula for yet. Unlike
 # FIELD_CANDIDATES, this isn't about extracting a value — the field names
-# themselves are the signal, checked by exact match or (for the ssm_ family)
-# by prefix, on both the top-level config and any nested one.
-NOVEL_ARCHITECTURE_SIGNAL_FIELDS = ("state_size", "mamba_expand", "ssm_cfg")
-NOVEL_ARCHITECTURE_SIGNAL_PREFIXES = ("ssm_",)
+# themselves are the signal, checked by exact match or (for the ssm_/mamba_/
+# linear_ families) by prefix, on both the top-level config and any nested
+# one.
+NOVEL_ARCHITECTURE_SIGNAL_FIELDS = (
+    "state_size",
+    "mamba_expand",
+    "ssm_cfg",
+    "attention_chunk_size",
+    "no_rope_layers",
+)
+NOVEL_ARCHITECTURE_SIGNAL_PREFIXES = ("ssm_", "mamba_", "linear_")
 
 
 def _get_field(cfg: dict[str, object], candidates: list[str]) -> object:
@@ -194,9 +205,11 @@ def _classify_layer_types(layer_types: tuple[str, ...] | None) -> tuple[int, int
     (attends over the whole context); one containing "sliding", "local", or
     "window" is windowed (its KV cache caps out at the model's window size).
     Any entry that matches neither means this config's convention isn't
-    understood yet, and the whole list is treated as unclassifiable — the
-    caller must fall back to the homogeneous-architecture formula rather
-    than guess.
+    understood yet (e.g. Qwen3.5/3.6's "linear_attention" recurrent layers),
+    and the whole list is treated as unclassifiable — the caller must refuse
+    to guess rather than fall back to the homogeneous-architecture formula,
+    since silently pricing an unrecognized layer type as full-attention can
+    be wrong in either direction.
     """
     if layer_types is None:
         return None
@@ -263,8 +276,12 @@ def kv_cache_model(arch: Architecture, bytes_per_element: float = 2.0) -> KvCach
     see tests/test_architecture.py for both.
 
     Returns None when the config doesn't expose enough architecture fields
-    to compute it (e.g. n_layers or head_dim missing) — callers must treat
-    that as "leave the existing value alone", never as zero.
+    to compute it (e.g. n_layers or head_dim missing), or when it exposes a
+    layer_types split this function can't fully resolve — an unrecognized
+    per-layer attention-type convention, or a recognized windowed component
+    with no sliding_window size to cap it at — since guessing there risks a
+    silently wrong number in either direction. Callers must treat None as
+    "leave the existing value alone", never as zero.
     """
     if arch.novel_architecture_fields:
         # State-space/Mamba-family fields (or any other architecture we
@@ -297,19 +314,34 @@ def kv_cache_model(arch: Architecture, bytes_per_element: float = 2.0) -> KvCach
     if arch.n_layers is None or kv_heads is None or head_dim is None:
         return None
 
-    classification = _classify_layer_types(arch.layer_types)
-    if classification is None or arch.sliding_window is None:
+    if arch.layer_types is None:
+        # No hybrid-attention signal at all — ordinary homogeneous
+        # architecture, computed exactly as before this model existed.
         return KvCacheModel(
             bytes_per_token=2 * arch.n_layers * kv_heads * head_dim * bytes_per_element,
             bytes_fixed=0.0,
         )
 
+    classification = _classify_layer_types(arch.layer_types)
+    if classification is None:
+        # layer_types is present but uses a convention _classify_layer_types
+        # doesn't recognize — refuse to guess rather than silently pricing
+        # every layer as full-attention (see _classify_layer_types).
+        return None
+
     n_windowed, n_unwindowed = classification
+    if n_windowed > 0 and arch.sliding_window is None:
+        # There's a recognized windowed component but no window size to cap
+        # its fixed cost at — can't safely compute bytes_fixed, so refuse
+        # rather than guess.
+        return None
+
     global_kv_heads = arch.global_n_heads_kv if arch.global_n_heads_kv is not None else kv_heads
     global_head_dim = arch.global_head_dim if arch.global_head_dim is not None else head_dim
+    sliding_window = arch.sliding_window if arch.sliding_window is not None else 0
 
     bytes_per_token = 2 * n_unwindowed * global_kv_heads * global_head_dim * bytes_per_element
-    bytes_fixed = 2 * n_windowed * kv_heads * head_dim * bytes_per_element * arch.sliding_window
+    bytes_fixed = 2 * n_windowed * kv_heads * head_dim * bytes_per_element * sliding_window
     return KvCacheModel(bytes_per_token=bytes_per_token, bytes_fixed=bytes_fixed)
 
 

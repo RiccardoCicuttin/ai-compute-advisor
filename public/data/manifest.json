@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "dataVersion": "2026-09-02-hf-sync",
-  "lastUpdated": "2026-09-02",
+  "dataVersion": "2026-09-03-hf-sync",
+  "lastUpdated": "2026-09-03",
   "catalogs": {
     "models": "models.json",
     "modelBenchmarks": "model-benchmarks.json",

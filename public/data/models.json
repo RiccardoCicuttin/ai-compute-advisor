@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "catalogId": "models",
-  "lastUpdated": "2026-09-02",
+  "lastUpdated": "2026-09-03",
   "source": {
     "label": "Artificial Analysis open-model index (family discovery)",
     "url": "https://artificialanalysis.ai/models/open-source",
@@ -698,7 +698,7 @@
       "commercialUse": "allowed",
       "notes": "Current configurable instruct/reasoning/coding MoE. Specs, official NVFP4 checkpoint and Apache 2.0 license: Mistral Small 4 publisher model cards. The 4-bit planning path can fit a 96GB class memory envelope at moderate context, but runtime support, long-context memory and TPS must be validated.",
       "contextWindowTokens": 262144,
-      "kvCacheBytesPerToken": 589824.0
+      "kvCacheBytesPerToken": 23040.0
     },
     {
       "id": "gpt-oss-120b",
@@ -844,7 +844,7 @@
       "commercialUse": "allowed",
       "notes": "Frontier-class MoE example. Local fit uses total parameters and a conservative KV fallback.",
       "contextWindowTokens": 131072,
-      "kvCacheBytesPerToken": 1748992.0
+      "kvCacheBytesPerToken": 70272.0
     }
   ]
 }

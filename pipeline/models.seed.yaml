@@ -420,6 +420,16 @@ models:
       checkpoint and Apache 2.0 license: Mistral Small 4 publisher model cards. The
       4-bit planning path can fit a 96GB class memory envelope at moderate context,
       but runtime support, long-context memory and TPS must be validated.
+    # MLA (Multi-head Latent Attention): same architecture family as
+    # deepseek-r1-671b. kv_cache_model() derives 23040 bytes/token from the
+    # real config (text_config.kv_lora_rank=256, qk_rope_head_dim=64, 36
+    # layers: 36*(256+64)*2), correcting a previously committed value that
+    # had been computed with the standard per-KV-head formula misapplied to
+    # MLA's non-representative num_key_value_heads/head_dim fields
+    # (2*36*32*128*2 = 589824). The divergence guard would otherwise hold
+    # the old (wrong) value; this override forces the corrected one through.
+    # See kv_cache_model() in pipeline/src/hf_sync/architecture.py.
+    kvCacheBytesPerTokenOverride: 23040
 
   - id: gpt-oss-120b
     hfRepoId: openai/gpt-oss-120b
@@ -516,3 +526,18 @@ models:
     openWeight: true
     commercialUse: allowed
     notes: Frontier-class MoE example. Local fit uses total parameters and a conservative KV fallback.
+    # MLA (Multi-head Latent Attention): kv_cache_model() derives 70272
+    # bytes/token from the real config (kv_lora_rank=512, qk_rope_head_dim=64,
+    # 61 layers), correcting a previously committed value that had been
+    # computed with the standard per-KV-head formula misapplied to MLA's
+    # non-representative num_key_value_heads/head_dim fields. The divergence
+    # guard would otherwise hold the old (wrong) value; this override forces
+    # the corrected one through. See kv_cache_model() in
+    # pipeline/src/hf_sync/architecture.py.
+    kvCacheBytesPerTokenOverride: 70272
+    # YaRN-scaled model; config's max_position_embeddings=163840 is the raw
+    # scaled value (rope_scaling: type=yarn, factor=40, original_max_position
+    # _embeddings=4096 -> 4096*40=163840), but the model is officially
+    # validated to 128k. Override matches DeepSeek's published spec and
+    # inference framework defaults.
+    contextWindowTokensOverride: 131072

@@ -183,8 +183,12 @@ models:
     provider: DeepSeek
     family: DeepSeek-R1 Distill
     modelType: dense
-    totalParametersB: 14
-    activeParametersB: 14
+    # Same architecture as Qwen2.5-14B (hidden_size=5120, 48 layers) — this
+    # distill's true parameter count is inherited from that base, not a
+    # rounder "14B", confirmed at 14.7B by third-party model specs (Fireworks
+    # AI, https://fireworks.ai/models/fireworks/deepseek-r1-distill-qwen-14b).
+    totalParametersB: 14.7
+    activeParametersB: 14.7
     maxOutputTokens: 32768
     recommendedQuantizationId: q4
     quantizations:

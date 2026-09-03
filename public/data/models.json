@@ -300,8 +300,8 @@
       "provider": "DeepSeek",
       "family": "DeepSeek-R1 Distill",
       "modelType": "dense",
-      "totalParametersB": 14.0,
-      "activeParametersB": 14.0,
+      "totalParametersB": 14.7,
+      "activeParametersB": 14.7,
       "maxOutputTokens": 32768,
       "recommendedQuantizationId": "q4",
       "quantizations": [

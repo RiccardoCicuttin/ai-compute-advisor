@@ -48,6 +48,13 @@ FIELD_CANDIDATES: dict[str, list[str]] = {
     # make that split, in which case the windowed-layer config is reused.
     "global_n_heads_kv": ["num_global_key_value_heads"],
     "global_head_dim": ["global_head_dim"],
+    # Multi-head Latent Attention (DeepSeek-V2/V3/R1): the cache holds a
+    # compressed low-rank latent per token, not per-KV-head K/V vectors, so
+    # num_key_value_heads/head_dim above don't describe its cache shape at
+    # all. kv_lora_rank's presence is the signal that a config is MLA;
+    # num_key_value_heads and head_dim must not be used for these configs.
+    "kv_lora_rank": ["kv_lora_rank"],
+    "qk_rope_head_dim": ["qk_rope_head_dim"],
 }
 
 NESTED_CONFIG_KEYS = (
@@ -97,6 +104,18 @@ class Architecture:
     sliding_window: int | None
     global_n_heads_kv: int | None
     global_head_dim: int | None
+    kv_lora_rank: int | None
+    qk_rope_head_dim: int | None
+
+    @property
+    def is_mla(self) -> bool:
+        """True for Multi-head Latent Attention configs (DeepSeek-V2/V3/R1).
+
+        kv_lora_rank's presence is the signal: MLA caches a compressed
+        latent per token instead of per-KV-head K/V vectors, so
+        effective_kv_heads/effective_head_dim below don't apply to it.
+        """
+        return self.kv_lora_rank is not None
 
     @property
     def effective_kv_heads(self) -> int | None:
@@ -127,6 +146,8 @@ def extract_architecture(cfg: dict[str, object]) -> Architecture:
         sliding_window=_as_int(values["sliding_window"]),
         global_n_heads_kv=_as_int(values["global_n_heads_kv"]),
         global_head_dim=_as_int(values["global_head_dim"]),
+        kv_lora_rank=_as_int(values["kv_lora_rank"]),
+        qk_rope_head_dim=_as_int(values["qk_rope_head_dim"]),
     )
 
 
@@ -211,6 +232,23 @@ def kv_cache_model(arch: Architecture, bytes_per_element: float = 2.0) -> KvCach
     to compute it (e.g. n_layers or head_dim missing) — callers must treat
     that as "leave the existing value alone", never as zero.
     """
+    if arch.is_mla:
+        # DeepSeek-V2/V3/R1 (Multi-head Latent Attention): num_key_value_heads
+        # and head_dim above do not describe this architecture's cache shape
+        # and must not be used here. See Architecture.is_mla.
+        if arch.n_layers is None or arch.kv_lora_rank is None or arch.qk_rope_head_dim is None:
+            return None
+        # MLA compresses K and V into one shared low-rank latent per token
+        # per layer (kv_lora_rank) plus a decoupled RoPE component
+        # (qk_rope_head_dim) — there's no separate K and V to cache, so
+        # unlike the standard formula below, bytes_per_element here is
+        # purely the dtype size (BF16 = 2 bytes/element), not a "times 2 for
+        # K and V" factor. Uniform across layers, so no fixed/windowed term.
+        bytes_per_token = (
+            arch.n_layers * (arch.kv_lora_rank + arch.qk_rope_head_dim) * bytes_per_element
+        )
+        return KvCacheModel(bytes_per_token=bytes_per_token, bytes_fixed=0.0)
+
     kv_heads = arch.effective_kv_heads
     head_dim = arch.effective_head_dim
     if arch.n_layers is None or kv_heads is None or head_dim is None:

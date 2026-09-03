@@ -170,6 +170,47 @@ def test_gemma_4_26b_a4b_kv_cache_model_splits_linear_and_fixed_terms() -> None:
     assert model.bytes_fixed == 209715200
 
 
+# deepseek-ai/DeepSeek-R1's published config.json (pipeline/.cache/hf_configs/
+# deepseek-ai__DeepSeek-R1.json): Multi-head Latent Attention (model_type
+# deepseek_v3). num_key_value_heads (128) equals num_attention_heads here —
+# a red herring left over from the base transformers config schema, not a
+# real GQA split — because MLA doesn't cache per-head K/V at all; it caches
+# a compressed low-rank latent per token (kv_lora_rank=512) plus a decoupled
+# RoPE component (qk_rope_head_dim=64), independent of head count.
+DEEPSEEK_R1_CONFIG = _load_cached_config("deepseek-ai__DeepSeek-R1.json")
+
+
+def test_mla_detected_from_kv_lora_rank() -> None:
+    arch = extract_architecture(DEEPSEEK_R1_CONFIG)
+    assert arch.kv_lora_rank == 512
+    assert arch.qk_rope_head_dim == 64
+    assert arch.is_mla is True
+
+
+def test_non_mla_config_is_not_flagged_mla() -> None:
+    arch = extract_architecture(LLAMA_3_1_8B_CONFIG)
+    assert arch.kv_lora_rank is None
+    assert arch.is_mla is False
+
+
+def test_mla_kv_cache_model_uses_latent_rank_not_per_head_formula() -> None:
+    # kv_cache_model() must not apply the standard per-KV-head formula to
+    # num_key_value_heads=128 / head_dim=56 (hidden_size/n_heads fallback) —
+    # that combination is meaningless for MLA and previously produced a
+    # wrong committed value (kvCacheBytesPerToken=1748992 for
+    # deepseek-r1-671b in public/data/models.json). MLA caches one
+    # compressed latent per token per layer instead: kv_lora_rank(512) +
+    # qk_rope_head_dim(64) = 576 elements, BF16 (2 bytes), 61 layers:
+    #   61 * 576 * 2 = 70272 bytes/token, uniform across layers (no fixed
+    # component — MLA doesn't have windowed/full-attention layers to split).
+    arch = extract_architecture(DEEPSEEK_R1_CONFIG)
+    model = kv_cache_model(arch)
+    assert model is not None
+    assert model.bytes_per_token == 70272
+    assert model.bytes_fixed == 0.0
+    assert kv_cache_bytes_per_token(arch) == 70272
+
+
 def test_unclassifiable_layer_types_falls_back_to_homogeneous_formula() -> None:
     # A layer_types value using a convention this catalog hasn't seen yet
     # (neither "full"/"global" nor "sliding"/"local"/"window") must not be

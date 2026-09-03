@@ -56,6 +56,13 @@ models:
     openWeight: true
     commercialUse: allowed
     notes: Balanced local model used as a directional planning example.
+    # config.json's max_position_embeddings=32768 is the pre-YaRN native
+    # window; the published model card states "Full 131,072 tokens context
+    # length" via YaRN applied at inference time (e.g. a vLLM/SGLang
+    # rope-scaling flag), which never appears in config.json itself. Override
+    # pins the officially documented figure so this doesn't keep re-flagging
+    # as a stale divergence. See https://huggingface.co/Qwen/Qwen2.5-14B-Instruct.
+    contextWindowTokensOverride: 131072
 
   - id: mixtral-8x7b-instruct
     hfRepoId: mistralai/Mixtral-8x7B-Instruct-v0.1
@@ -430,6 +437,13 @@ models:
     # the old (wrong) value; this override forces the corrected one through.
     # See kv_cache_model() in pipeline/src/hf_sync/architecture.py.
     kvCacheBytesPerTokenOverride: 23040
+    # config.json's max_position_embeddings=1048576 is an untrimmed
+    # theoretical max, not the officially supported window; the published
+    # model card lists "256k context length" / "Supports a 256k context
+    # window" under Key Features. Override pins the documented figure so
+    # this doesn't keep re-flagging as a stale divergence. See
+    # https://huggingface.co/mistralai/Mistral-Small-4-119B-2603.
+    contextWindowTokensOverride: 262144
 
   - id: gpt-oss-120b
     hfRepoId: openai/gpt-oss-120b
@@ -481,6 +495,15 @@ models:
       that system, not a validated checkpoint or performance observation. No public
       Qwen3.5-235B-A22B model card was found, so this record intentionally uses the
       verified Qwen3 identity. Runtime, quality and TPS require direct validation.
+    # config.json's max_position_embeddings=40960 is a padded serving buffer
+    # (confirmed via a sibling Qwen3 model's own HF discussion thread:
+    # https://huggingface.co/Qwen/Qwen3-8B/discussions/17), not a real
+    # context claim; the model card's original_max_position_embeddings=32768
+    # is what YaRN actually scales from, matching "32,768 natively" in the
+    # published docs (131,072 requires the documented YaRN extension, not
+    # applied here — see this entry's own notes above). Override pins the
+    # native figure so this doesn't keep re-flagging as a stale divergence.
+    contextWindowTokensOverride: 32768
 
   - id: qwen3-30b-a3b-instruct-2507
     hfRepoId: Qwen/Qwen3-30B-A3B-Instruct-2507

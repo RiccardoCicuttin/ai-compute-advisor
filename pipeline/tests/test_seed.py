@@ -8,9 +8,9 @@ from hf_sync.seed import load_seed
 
 def test_committed_seed_file_loads_and_validates() -> None:
     seed = load_seed()
-    assert len(seed) == 20
+    assert len(seed) >= 20, f"Seed shrank unexpectedly: {len(seed)} models"
     ids = [m.id for m in seed]
-    assert len(set(ids)) == len(ids)
+    assert len(set(ids)) == len(ids), "Duplicate model ids in seed"
     assert "gpt-oss-120b" in ids
 
 

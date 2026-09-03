@@ -44,6 +44,12 @@ HYBRID_ATTENTION_CONFIG = {
 # bytes_per_token = 2 * 1 full layer * 2 global KV heads * 128 global head_dim = 1024
 # bytes_fixed = 2 * 5 sliding layers * 4 KV heads * 64 head_dim * 100-token window = 512000
 
+# Synthetic Mamba/Jamba-style config: state_size is a novel-architecture
+# signal field kv_cache_model() has no formula for, even though the rest of
+# the config looks like an ordinary dense Llama config that would otherwise
+# satisfy the ordinary formula.
+NOVEL_ARCHITECTURE_CONFIG = {**LLAMA_3_1_8B_CONFIG, "state_size": 16}
+
 
 def make_seed_model(**overrides: object) -> SeedModel:
     defaults: dict[str, object] = {
@@ -214,6 +220,58 @@ def test_matching_kv_cache_raises_no_gap(monkeypatch: pytest.MonkeyPatch) -> Non
     result = build_catalog.build(seed, previous)
 
     assert result.records[0]["kvCacheBytesPerToken"] == 131072
+    assert result.gaps == []
+
+
+def test_novel_architecture_falls_back_to_previous_kv_cache_and_is_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: NOVEL_ARCHITECTURE_CONFIG)
+
+    seed = [make_seed_model()]
+    previous = {"test-model": {"contextWindowTokens": 131072, "kvCacheBytesPerToken": 983040}}
+    result = build_catalog.build(seed, previous)
+
+    assert len(result.records) == 1
+    record = result.records[0]
+    # Must not apply the standard per-KV-head formula despite the config
+    # otherwise looking like an ordinary dense Llama config — kv_cache_model()
+    # refuses to guess, so the previously committed value is kept.
+    assert record["kvCacheBytesPerToken"] == 983040
+    assert len(result.gaps) == 1
+    assert result.gaps[0].action == "carried-forward-stale"
+    assert "novel-looking architecture, pending formula review" in result.gaps[0].reason
+    assert "state_size" in result.gaps[0].reason
+
+
+def test_novel_architecture_with_no_previous_value_omits_kv_cache_but_still_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: NOVEL_ARCHITECTURE_CONFIG)
+
+    seed = [make_seed_model()]
+    result = build_catalog.build(seed, previous={})
+
+    assert len(result.records) == 1
+    # No previous value to fall back to — the record is still published
+    # (kvCacheBytesPerToken is an optional field), just without one, rather
+    # than being excluded outright.
+    assert "kvCacheBytesPerToken" not in result.records[0]
+    assert len(result.gaps) == 1
+    assert result.gaps[0].action == "carried-forward-stale"
+    assert "novel-looking architecture, pending formula review" in result.gaps[0].reason
+
+
+def test_kv_cache_override_wins_over_novel_architecture_signal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_catalog, "fetch_config", lambda repo_id: NOVEL_ARCHITECTURE_CONFIG)
+
+    seed = [make_seed_model(kvCacheBytesPerTokenOverride=12345)]
+    previous = {"test-model": {"contextWindowTokens": 131072, "kvCacheBytesPerToken": 983040}}
+    result = build_catalog.build(seed, previous)
+
+    assert result.records[0]["kvCacheBytesPerToken"] == 12345
     assert result.gaps == []
 
 

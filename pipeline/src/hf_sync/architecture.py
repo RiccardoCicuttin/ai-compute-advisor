@@ -65,6 +65,14 @@ NESTED_CONFIG_KEYS = (
     "decoder_config",
 )
 
+# Fields that signal a state-space/Mamba-family architecture (or any other
+# architecture we haven't built a kv_cache_model() formula for yet). Unlike
+# FIELD_CANDIDATES, this isn't about extracting a value — the field names
+# themselves are the signal, checked by exact match or (for the ssm_ family)
+# by prefix, on both the top-level config and any nested one.
+NOVEL_ARCHITECTURE_SIGNAL_FIELDS = ("state_size", "mamba_expand", "ssm_cfg")
+NOVEL_ARCHITECTURE_SIGNAL_PREFIXES = ("ssm_",)
+
 
 def _get_field(cfg: dict[str, object], candidates: list[str]) -> object:
     for key in candidates:
@@ -91,6 +99,30 @@ def _as_layer_types(value: object) -> tuple[str, ...] | None:
     return tuple(value)
 
 
+def _detect_novel_architecture_fields(cfg: dict[str, object]) -> tuple[str, ...]:
+    """Scans the raw config (and any nested sub-config) for field names that
+    signal an architecture kv_cache_model() has no formula for yet.
+
+    This deliberately doesn't try to interpret the fields' values — their
+    mere presence is the signal, the same way kv_lora_rank's presence alone
+    (not its value) signals MLA. Returns the field names found, in the order
+    first seen, for use in the gap message; an empty tuple means no signal.
+    """
+    found: list[str] = []
+    configs = [cfg] + [
+        nested for nest_key in NESTED_CONFIG_KEYS if isinstance(nested := cfg.get(nest_key), dict)
+    ]
+    for config in configs:
+        for key in config:
+            is_signal = isinstance(key, str) and (
+                key in NOVEL_ARCHITECTURE_SIGNAL_FIELDS
+                or key.startswith(NOVEL_ARCHITECTURE_SIGNAL_PREFIXES)
+            )
+            if is_signal and key not in found:
+                found.append(key)
+    return tuple(found)
+
+
 @dataclass(frozen=True)
 class Architecture:
     n_layers: int | None
@@ -106,6 +138,7 @@ class Architecture:
     global_head_dim: int | None
     kv_lora_rank: int | None
     qk_rope_head_dim: int | None
+    novel_architecture_fields: tuple[str, ...]
 
     @property
     def is_mla(self) -> bool:
@@ -148,6 +181,7 @@ def extract_architecture(cfg: dict[str, object]) -> Architecture:
         global_head_dim=_as_int(values["global_head_dim"]),
         kv_lora_rank=_as_int(values["kv_lora_rank"]),
         qk_rope_head_dim=_as_int(values["qk_rope_head_dim"]),
+        novel_architecture_fields=_detect_novel_architecture_fields(cfg),
     )
 
 
@@ -232,6 +266,15 @@ def kv_cache_model(arch: Architecture, bytes_per_element: float = 2.0) -> KvCach
     to compute it (e.g. n_layers or head_dim missing) — callers must treat
     that as "leave the existing value alone", never as zero.
     """
+    if arch.novel_architecture_fields:
+        # State-space/Mamba-family fields (or any other architecture we
+        # haven't built a formula for) don't cache per-head K/V at all — an
+        # SSM carries a fixed-size recurrent state instead, which this
+        # formula (and the MLA one below) both assume isn't the case. Same
+        # discipline as MLA before its formula existed: refuse to guess:
+        # the caller must treat this exactly like "not enough info yet".
+        return None
+
     if arch.is_mla:
         # DeepSeek-V2/V3/R1 (Multi-head Latent Attention): num_key_value_heads
         # and head_dim above do not describe this architecture's cache shape

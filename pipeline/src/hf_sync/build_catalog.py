@@ -128,6 +128,33 @@ def _refresh_fields(
 
     if seed_model.kvCacheBytesPerTokenOverride is not None:
         overrides["kvCacheBytesPerToken"] = seed_model.kvCacheBytesPerTokenOverride
+    elif arch.novel_architecture_fields:
+        # State-space/Mamba-family fields (or any other architecture
+        # kv_cache_model() doesn't have a formula for) — refuse to guess,
+        # same discipline as MLA before its formula existed. kv is already
+        # None here (kv_cache_model() returns None for this case), so fall
+        # back to whatever was previously committed rather than publish
+        # nothing.
+        fields = ", ".join(arch.novel_architecture_fields)
+        logger.warning(
+            "{}: HF config contains fields associated with an architecture "
+            "kv_cache_model() doesn't have a formula for yet ({}) — treating "
+            "KV-cache derivation as unavailable",
+            seed_model.id,
+            fields,
+        )
+        if previous_kv is not None:
+            overrides["kvCacheBytesPerToken"] = previous_kv
+        divergences.append(
+            "novel-looking architecture, pending formula review "
+            f"(config contains {fields}, which kv_cache_model() doesn't have a formula "
+            "for yet); "
+            + (
+                f"kept previous kvCacheBytesPerToken={previous_kv}"
+                if previous_kv is not None
+                else "no previous kvCacheBytesPerToken to fall back to"
+            )
+        )
     elif kv is not None:
         if previous_kv is not None and previous_kv != kv:
             overrides["kvCacheBytesPerToken"] = previous_kv

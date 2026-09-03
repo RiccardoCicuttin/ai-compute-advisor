@@ -211,6 +211,53 @@ def test_mla_kv_cache_model_uses_latent_rank_not_per_head_formula() -> None:
     assert kv_cache_bytes_per_token(arch) == 70272
 
 
+# Synthetic Mamba/Jamba-style hybrid config: state-space layers don't cache
+# per-head K/V at all, so num_key_value_heads/head_dim below (present the
+# same way DeepSeek's are, as leftover base-schema fields) don't describe
+# this architecture's cache shape either — same problem class as MLA, but
+# for a family this catalog has no formula for at all yet.
+MAMBA_HYBRID_CONFIG = {
+    **LLAMA_3_1_8B_CONFIG,
+    "state_size": 16,
+    "mamba_expand": 2,
+    "ssm_dt_rank": "auto",
+}
+
+
+def test_novel_architecture_fields_detected_from_known_signals() -> None:
+    arch = extract_architecture(MAMBA_HYBRID_CONFIG)
+    assert set(arch.novel_architecture_fields) == {"state_size", "mamba_expand", "ssm_dt_rank"}
+
+
+def test_novel_architecture_fields_detected_via_ssm_prefix_alone() -> None:
+    # Only an ssm_-prefixed field, no exact-match signal field — the prefix
+    # rule alone must be enough to flag it.
+    cfg = {**LLAMA_3_1_8B_CONFIG, "ssm_conv_kernel": 4}
+    arch = extract_architecture(cfg)
+    assert arch.novel_architecture_fields == ("ssm_conv_kernel",)
+
+
+def test_novel_architecture_fields_detected_in_nested_config() -> None:
+    wrapped = {"text_config": MAMBA_HYBRID_CONFIG, "vision_config": {"hidden_size": 1024}}
+    arch = extract_architecture(wrapped)
+    assert set(arch.novel_architecture_fields) == {"state_size", "mamba_expand", "ssm_dt_rank"}
+
+
+def test_ordinary_config_has_no_novel_architecture_fields() -> None:
+    arch = extract_architecture(LLAMA_3_1_8B_CONFIG)
+    assert arch.novel_architecture_fields == ()
+
+
+def test_kv_cache_model_refuses_to_guess_for_novel_architecture() -> None:
+    # Even though MAMBA_HYBRID_CONFIG carries num_key_value_heads/head_dim
+    # fields that would otherwise satisfy the standard formula, the novel
+    # -architecture signal must take priority and refuse to guess — exactly
+    # the discipline MLA needed before its formula existed.
+    arch = extract_architecture(MAMBA_HYBRID_CONFIG)
+    assert kv_cache_model(arch) is None
+    assert kv_cache_bytes_per_token(arch) is None
+
+
 def test_unclassifiable_layer_types_falls_back_to_homogeneous_formula() -> None:
     # A layer_types value using a convention this catalog hasn't seen yet
     # (neither "full"/"global" nor "sliding"/"local"/"window") must not be
